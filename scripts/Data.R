@@ -9,7 +9,11 @@ rm(list = ls()) # Limpiar Rstudio
 require(pacman)
 p_load(ggplot2, rio, tidyverse, skimr, caret, 
        rvest, magrittr, rstudioapi, stargazer, 
-       boot, readxl, knitr, kableExtra, glmnet, sf, tmaptools, leaflet) # Cargar varios paquetes al tiempo
+       boot, readxl, knitr, kableExtra,
+       glmnet, sf, tmaptools, leaflet,
+       stri_trans_general, gsub, tolower, toupper,
+       trimws, substr) # Cargar varios paquetes al tiempo
+
 
 
 #Definir el directorio
@@ -121,8 +125,9 @@ head(db$description)
 tail(db$description)
 
 
-head(train$title)
-tail(train$title)
 
+
+
+# Getting info from Description -------------------------------------------
 
 
