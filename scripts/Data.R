@@ -20,10 +20,6 @@ getwd()
 
 # Importing Data ----------------------------------------------------------
 
-
-
-
-
 #train data
 train<-read_csv("../stores/train.csv")
 test<-read_csv("../stores/test.csv")
@@ -43,6 +39,11 @@ db<- st_as_sf( #para convertirlo en un spatial data frame
   coords = c("lon", "lat"), #primero longitud, luego latitud
   crs = 4326 #EPSG:4326=WGS84 (World Geodetic System 1984)
 )
+
+
+
+# Ensure the neighborhood_shapefile has the correct CRS (Coordinate Reference System)
+neighborhood_shapefile <- st_set_crs(neighborhood_shapefile, 4326)
 
 
 pal <- colorFactor(
