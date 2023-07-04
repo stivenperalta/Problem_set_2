@@ -20,44 +20,59 @@ getwd()
 
 # Importing Data ----------------------------------------------------------
 
-#training data
-training<-read_csv("../stores/train.csv")
-names(training) #vemos las variables disponibles
-summary(training)
+#train data
+train<-read_csv("../stores/train.csv")
+test<-read_csv("../stores/test.csv")
+
+test<-test %>% mutate(sample="test")
+train<-train %>% mutate(sample="train")
+
+db<-rbind(test,train) #juntamos ambas bases
+
+names(db) #vemos las variables disponibles
+summary(db)
 
 ##Revisamos variables en la base inicial
 
 #CITY
-table(training$city) #revisamos que no hayan errores de entrada en esta variable, todas son Bogotá D.C
+table(db$city) #revisamos que no hayan errores de entrada en esta variable, todas son Bogotá D.C
 
-#PRICE
+#PRICE (para train)
 br = seq(3.000e+08,1.650e+09,by=50000000) # creamos los braquets/bins
 ranges = paste(head(br,-1), br[-1], sep=" - ") #creamos los rangos en base a los braquets
-freq   = hist(training$price, breaks=br, include.lowest=TRUE, plot=TRUE, 
+freq   = hist(train$price, breaks=br, include.lowest=TRUE, plot=TRUE, 
+              
               col="lightblue", border="grey",
               xlab="Precio en COP", ylab="Número de inmuebles",main="Distribución de Precios en Bogotá") #sacamos la frecuencia para cada uno de los braquets
 
 data.frame(range = ranges, frequency = freq$counts) #tabla de frecuencia con bins
 
+#Scatterplot de precios por tipo de vivienda (apartamento/casa) (para train)
+ggplot(train, aes(x = surface_total, y = price, color = property_type)) +
+  geom_point(size = 2) +
+  scale_color_manual(values = c("lightblue","grey")) +
+  labs(x = "Superficie Total", y = "Precio", title = "Precios de Inmuebles por superficie")
+
+
 #MONTH YEAR- CREAMOS UNA VARIABLE UNIENDO MES Y AÑO
-typeof(c(training$month, training$year))#revisamos que tipo son (double)
-training$date<-as.Date(paste(training$year, training$month,"1", sep = "-")) #se creo variable con formato YYYY-MM-01
+typeof(c(db$month, db$year))#revisamos que tipo son (double)
+train$date<-as.Date(paste(db$year, db$month,"1", sep = "-")) #se creo variable con formato YYYY-MM-01
 
 #SURFACE TOTAL
 
 #SURFACE COVERED
 
 #ROOMS
-table(training$rooms)
+table(db$rooms)
 
 #BEDROOMS
-table(training$bedrooms)
+table(db$bedrooms)
 
 #BATHROOMS
-table(training$bathrooms)
+table(db$bathrooms)
 
 #PROPERTY TYPE
-pt<-data.frame(table(training$property_type))
+pt<-data.frame(table(db$property_type))
 pie_pt <- ggplot(pt, aes(x = "", y = Freq, fill = Var1)) +
   geom_bar(stat = "identity", width = 1) +
   coord_polar("y", start = 0) +
@@ -68,12 +83,18 @@ pie_pt <- ggplot(pt, aes(x = "", y = Freq, fill = Var1)) +
 pie_pt
 
 #OPERATION TYPE
-table(training$operation_type) #todos son para la venta
+table(train$operation_type) #todos son para la venta
 
 #TITLE
-head(training$title)
+head(db$title)
 
 #DESCRIPTION
-head(training$description)
-tail(training$description)
+head(db$description)
+tail(db$description)
+
+
+head(train$title)
+tail(train$title)
+
+
 
