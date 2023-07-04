@@ -41,7 +41,25 @@ data.frame(range = ranges, frequency = freq$counts) #tabla de frecuencia con bin
 
 #MONTH YEAR- CREAMOS UNA VARIABLE UNIENDO MES Y AÑO
 typeof(c(training$month, training$year))#revisamos que tipo son (double)
+training$date<-as.Date(paste(training$year, training$month,"1", sep = "-")) #se creo variable con formato YYYY-MM-01
 
+#SURFACE TOTAL
 
+#SURFACE COVERED
 
+#ROOMS
+table(training$rooms)
 
+#BEDROOMS
+table(training$bedrooms)
+
+#BATHROOMS
+table(training$bathrooms)
+
+#PROPERTY TYPE
+table(training$property_type)
+ggplot(data, aes(x="", y=training$property_type, fill=group)) +
+  geom_bar(stat="identity", width=1, color="white") +
+  coord_polar("y", start=0) +
+  
+  theme_void() # remove background, grid, numeric labels
