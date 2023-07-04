@@ -57,9 +57,23 @@ table(training$bedrooms)
 table(training$bathrooms)
 
 #PROPERTY TYPE
-table(training$property_type)
-ggplot(data, aes(x="", y=training$property_type, fill=group)) +
-  geom_bar(stat="identity", width=1, color="white") +
-  coord_polar("y", start=0) +
-  
-  theme_void() # remove background, grid, numeric labels
+pt<-data.frame(table(training$property_type))
+pie_pt <- ggplot(pt, aes(x = "", y = Freq, fill = Var1)) +
+  geom_bar(stat = "identity", width = 1) +
+  coord_polar("y", start = 0) +
+  theme_void() +
+  scale_fill_manual(values = c("#F8766D", "#00BFC4")) +
+  labs(title = "Pie Chart")
+
+pie_pt
+
+#OPERATION TYPE
+table(training$operation_type) #todos son para la venta
+
+#TITLE
+head(training$title)
+
+#DESCRIPTION
+head(training$description)
+tail(training$description)
+
