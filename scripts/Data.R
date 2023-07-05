@@ -11,7 +11,7 @@ p_load(ggplot2, rio, tidyverse, skimr, caret,
        rvest, magrittr, rstudioapi, stargazer, 
        boot, readxl, knitr, kableExtra,
        glmnet, sf, tmaptools, leaflet,
-       tokenizers) # Cargar varios paquetes al tiempo
+       tokenizers, stopwords, SnowballC) # Cargar varios paquetes al tiempo
 
 
 
@@ -120,11 +120,10 @@ tail(db$description)# parece que no hay tildes ni puntos ni comas ni mayúsculas
 # Getting info from Description -------------------------------------------
 
 #Tokenization
-
 db$tokens<-tokenize_words(db$description) #esto corta todas las palabras
 head(db$tokens)
 
-db$ntoken<-tokenize_ngrams(x=db$description,
+db$ntokens<-tokenize_ngrams(x=db$description,
                            lowercase=TRUE, #convierte todo a lower case, aunque ya estaba, just in case
                            n=3L, #lenght del n-gram (trigram en este caso)
                            n_min=3L, #solo se hacen de 3 
@@ -132,12 +131,38 @@ db$ntoken<-tokenize_ngrams(x=db$description,
                            ngram_delim=" ", #tokens separados por espacios
                            simplify=FALSE) #se crea lista de trigrams
 
-pc<-c("estar_de_tv","sala_de_estar","estudio_para_trabajo","alcoba_principal","bano privado","zona_social", "habitacion_principal","cuarto_de_servicio","cocina_cerrada","cocina_abierta","parqueadero_de_visitantes","ascensor_privado","centros_comerciales","centro_comercial","aparta_estudio","parqueadero_independiente")#para trabajar las palabras compuestas
+db$ntokens[[1]]
 
+#Stop words
+palabras1<-stopwords(language="es",source="snowball")
+palabras2<-stopwords(language="es", source="nltk")
 
-head(db$ntoken)
+palabras<-union(palabras1,palabras2)
+palabras
 
+for (i in seq_along(db$tokens)) { #eliminamos las stopwords de tokens
+  db$tokens[[i]]<-setdiff(db$tokens[[i]],palabras)
+} 
+db$tokens[[2]]
 
+#sacamos grams que comiencen o finalicen en palabras stop
+db$ntokens <- lapply(db$ntokens, function(row) { #aplica una función a cada fila de db$ntokens
+  row[!sapply(row, function(ngram) {
+    words <- unlist(strsplit(ngram, "\\s+")) #parte cada ngram en palabras y lo cuarda en words
+    words[1] %in% palabras || words[length(words)] %in% palabras #chequea si la primera o ultima palabra en words 
+                                                                #está en palabras usando %in%. Si alguna condición es verdad
+                                                                #se marca para removerla
+  })]
+})
+db$ntokens[[2]]
 
+#Stemming
+db$tokens<-wordStem(db$tokens, "spanish")
+
+for (i in seq_along(db$tokens)) { 
+  db$tokens[[i]]<-wordStem(db$tokens, "spanish")
+} 
+
+head(db$tokens)
 
 
