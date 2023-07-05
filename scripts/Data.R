@@ -11,7 +11,8 @@ p_load(ggplot2, rio, tidyverse, skimr, caret,
        rvest, magrittr, rstudioapi, stargazer, 
        boot, readxl, knitr, kableExtra,
        glmnet, sf, tmaptools, leaflet,
-       tokenizers, stopwords, SnowballC) # Cargar varios paquetes al tiempo
+       tokenizers, stopwords, SnowballC,
+       stringi) # Cargar varios paquetes al tiempo
 
 
 
@@ -138,6 +139,7 @@ palabras1<-stopwords(language="es",source="snowball")
 palabras2<-stopwords(language="es", source="nltk")
 
 palabras<-union(palabras1,palabras2)
+palabras<-stri_trans_general(str=palabras,id="Latin-ASCII")#sacamos las tildes
 palabras
 
 for (i in seq_along(db$tokens)) { #eliminamos las stopwords de tokens
@@ -156,13 +158,9 @@ db$ntokens <- lapply(db$ntokens, function(row) { #aplica una función a cada fil
 })
 db$ntokens[[2]]
 
-#Stemming
-db$tokens<-wordStem(db$tokens, "spanish")
+#Stemming- FALTA
+#db$tokens<-wordStem(db$tokens, "spanish")
 
-for (i in seq_along(db$tokens)) { 
-  db$tokens[[i]]<-wordStem(db$tokens, "spanish")
-} 
-
-head(db$tokens)
+#Variables of interest
 
 
