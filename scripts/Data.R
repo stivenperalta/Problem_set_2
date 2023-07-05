@@ -140,6 +140,7 @@ palabras2<-stopwords(language="es", source="nltk")
 
 palabras<-union(palabras1,palabras2)
 palabras<-stri_trans_general(str=palabras,id="Latin-ASCII")#sacamos las tildes
+palabras<-c(palabras,"m2") #agregamos m2
 palabras
 
 for (i in seq_along(db$tokens)) { #eliminamos las stopwords de tokens
@@ -206,11 +207,25 @@ db <- db %>%
          bbq=coalesce(bbq,0),
          parrilla=coalesce(parrilla,0),
          estudio=coalesce(estudio,0),
-         ascensor=coalesce(ascensor,0))
+         ascensor=coalesce(ascensor,0),
+         `casa multifamiliar`=coalesce(`casa multifamiliar`,0),
+         `cuarto de servicio`= coalesce(`cuarto de servicio`,0),
+         `zona de servicio`=coalesce(`zona de servicio`,0),
+         `conjunto cerrado`=coalesce(`conjunto cerrado`,0))
 
 #Buscando areas
+db$area_texto <- sapply(db$ntokens, function(tokens) {
+  area_ngram <- grep("\\barea\\b", tokens, ignore.case = TRUE, value = TRUE)
+  if (length(area_ngram) > 0) {
+    number <- gsub("\\D+", "", area_ngram)
+    as.numeric(number)
+  } else {
+    NA
+  }
+})
 
-
+db$area_texto[is.na(db$area_texto)] <- 0 #reemplazando los NAs
+ #reemplazando los c(NA,Na..)
 
 #Buscando baños
 
