@@ -12,7 +12,7 @@ p_load(ggplot2, rio, tidyverse, skimr, caret,
        boot, readxl, knitr, kableExtra,
        glmnet, sf, tmaptools, leaflet,
        tokenizers, stopwords, SnowballC,
-       stringi) # Cargar varios paquetes al tiempo
+       stringi, dplyr) # Cargar varios paquetes al tiempo
 
 
 
@@ -162,39 +162,59 @@ db$ntokens[[2]]
 #db$tokens<-wordStem(db$tokens, "spanish")
 
 #Variables of interest
-caracteristicas<-c("parqueadero","parqueaderos","chimenea","chimeneas",
-                   "seguridad","vigilancia","conjunto cerrado", "gimnasio",
-                   "areas comunes", "jardin", "casa multifamiliar","bbq",
-                   "parrilla","estudio","cuarto de servicio","cuarto servicio",
-                   "zona de servicio", "sector tranquilo","parqueadero visitante",
-                   "ascensor","ascensores")
+caracteristicas<-c("parqueadero","chimenea","balcon",
+                   "vigilancia", "gimnasio","jardin","bbq",
+                   "parrilla","estudio","ascensor")
+ncaracteristicas<-c("casa multifamiliar","cuarto de servicio", "zona de servicio","conjunto cerrado")
 
-matches<-FALSE
 
-# Iterating through the list
+# Iterating through the list and create dummy variables
+
+#tokens de una palabra
 for (i in seq_along(db$tokens)) {
-  for (j in seq_along(text_list[[i]])) {
-    for (word in word_list) {
-      if (grepl(word, text_list[[i]][[j]], ignore.case = TRUE)) {
-        match_found <- TRUE
-        break  # Exit the innermost loop if a match is found
+  for (j in seq_along(db$tokens[[i]])) {
+    for (k in seq_along(caracteristicas)) {
+      if (grepl(caracteristicas[k], db$tokens[[i]][[j]], ignore.case = TRUE)) {
+        db[i, caracteristicas[k]] <- 1
+        break
       }
     }
-    if (match_found) {
-      break  # Exit the second loop if a match is found
+  }
+}
+
+#tokens de más de una palabra
+for (i in seq_along(db$ntokens)) {
+  for (j in seq_along(db$ntokens[[i]])) {
+    for (k in seq_along(ncaracteristicas)) {
+      if (grepl(ncaracteristicas[k], db$ntokens[[i]][[j]], ignore.case = TRUE)) {
+        db[i, ncaracteristicas[k]] <- 1
+        break
+      }
     }
   }
-  if (match_found) {
-    break  # Exit the outermost loop if a match is found
-  }
 }
 
-# Print the result
-if (match_found) {
-  print("A match was found!")
-} else {
-  print("No match found.")
-}
+#Replacing dummy variables with 0s 
+
+db <- db %>% 
+  mutate(parqueadero = coalesce(parqueadero, 0),
+         chimenea = coalesce(chimenea, 0),
+         balcon= coalesce(balcon,0),
+         vigilancia= coalesce(seguridad,0),
+         gimnasio= coalesce(gimnasio,0),
+         jardin=coalesce(jardin,0),
+         bbq=coalesce(bbq,0),
+         parrilla=coalesce(parrilla,0),
+         estudio=coalesce(estudio,0),
+         ascensor=coalesce(ascensor,0))
+
+#Buscando areas
 
 
+
+#Buscando baños
+
+#Buscando Rooms
+
+#superficie
 
