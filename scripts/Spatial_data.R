@@ -49,4 +49,23 @@ ggplot() +
 sector_catastral_valid <- st_make_valid(sector_catastral) # Validar las geometrías de sector catastral
 data <- st_join(train_sf, sector_catastral_valid, join = st_within) # Realizar la unión espacial
 
+##cargamos la base de valores de refrencia por manzana
+v_ref_mzn <- st_read("../stores/valor_ref_2023.geojson")
+v_ref_mzn <- st_transform(v_ref_mzn, crs = 4686)
+print(v_ref_mzn)
+
+#unimos la informacion
+v_ref_mzn_valid <- st_make_valid(v_ref_mzn) # Validar las geometrías de sector catastral
+data <- st_join(data, v_ref_mzn_valid, join = st_within) # Realizar la unión espacial
+print(data) ## existen puntos por fuera de manzanas en la geolocalizacion
+
+# se los valores de la manzana mas cercana
+
+nearest_indices <- st_nearest_feature(data, v_ref_mzn_valid) # Obtener los índices de los polígonos más cercanos a cada punto en "data"
+
+data <- data %>%
+  mutate(valor_ref = v_ref_mzn_valid$V_REF[nearest_indices],
+         cod_mzn = v_ref_mzn_valid$MANCODIGO[nearest_indices]
+         )
+
 
