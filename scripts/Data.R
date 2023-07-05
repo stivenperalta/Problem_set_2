@@ -162,5 +162,39 @@ db$ntokens[[2]]
 #db$tokens<-wordStem(db$tokens, "spanish")
 
 #Variables of interest
+caracteristicas<-c("parqueadero","parqueaderos","chimenea","chimeneas",
+                   "seguridad","vigilancia","conjunto cerrado", "gimnasio",
+                   "areas comunes", "jardin", "casa multifamiliar","bbq",
+                   "parrilla","estudio","cuarto de servicio","cuarto servicio",
+                   "zona de servicio", "sector tranquilo","parqueadero visitante",
+                   "ascensor","ascensores")
+
+matches<-FALSE
+
+# Iterating through the list
+for (i in seq_along(db$tokens)) {
+  for (j in seq_along(text_list[[i]])) {
+    for (word in word_list) {
+      if (grepl(word, text_list[[i]][[j]], ignore.case = TRUE)) {
+        match_found <- TRUE
+        break  # Exit the innermost loop if a match is found
+      }
+    }
+    if (match_found) {
+      break  # Exit the second loop if a match is found
+    }
+  }
+  if (match_found) {
+    break  # Exit the outermost loop if a match is found
+  }
+}
+
+# Print the result
+if (match_found) {
+  print("A match was found!")
+} else {
+  print("No match found.")
+}
+
 
 
