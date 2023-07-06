@@ -135,3 +135,8 @@ print(IPS)
 TM <- st_read("../stores/Estaciones_TM.geojson")
 TM <- st_transform(TM, crs = 4686) #proyectar a coordenadas MAGNA-SIRGAS
 print(TM)
+
+#Densidad poblacional
+DP <- st_read("../stores/MGN_ANM_MANZANA.geojson")
+TM <- st_transform(TM, crs = 4686) #proyectar a coordenadas MAGNA-SIRGAS
+print(DP)
