@@ -59,7 +59,7 @@ v_ref_mzn_valid <- st_make_valid(v_ref_mzn) # Validar las geometrías de sector 
 data <- st_join(data, v_ref_mzn_valid, join = st_within) # Realizar la unión espacial
 print(data) ## existen puntos por fuera de manzanas en la geolocalizacion
 
-# se los valores de la manzana mas cercana
+# se asignan a estos puntos los valores de la manzana mas cercana
 
 nearest_indices <- st_nearest_feature(data, v_ref_mzn_valid) # Obtener los índices de los polígonos más cercanos a cada punto en "data"
 
@@ -68,4 +68,70 @@ data <- data %>%
          cod_mzn = v_ref_mzn_valid$MANCODIGO[nearest_indices]
          )
 
+###############################################################################
+#################  Carga de la informacion de fuentes externas ################
 
+#sectores catastrales (barrios)
+sector_catastral <- st_read("../stores/SECTOR.geojson")
+print(sector_catastral)
+summary(sector_catastral$SCACODIGO) #Variable de interes codigo ID
+table(sector_catastral$SCANOMBRE) #Variable de interes nombre Barrio
+
+#valor de referencia comercial m2 terreno
+v_ref_mzn <- st_read("../stores/valor_ref_2023.geojson")
+v_ref_mzn <- st_transform(v_ref_mzn, crs = 4686) #proyectar a coordenadas MAGNA-SIRGAS
+print(v_ref_mzn)
+summary(v_ref_mzn$MANCODIGO) #Variable de interes codigo manzana
+summary(v_ref_mzn$V_REF) #Variable de interes valor de referencia comercial m2 terreno
+
+#estratos
+estratos <- st_read("../stores/manzanaestratificacion/ManzanaEstratificacion.shp")
+print(estratos)
+summary(estratos$ESTRATO) ##Variable de interes estratos
+
+#establecimientos gastronomia y bar
+T_EGB <- st_read("../stores/establecimientos gastronomia y bar.geojson")
+print(T_EGB)
+summary(T_EGB$Division) ## Variable de interes densidad establecimientos (continua)
+table(T_EGB$Clases) ## Variable de interes densidad establecimientos (categorica)
+summary(T_EGB$CODIGO_UPZ) ## Variable de interes CODIGO UPZ (categorica)
+table(T_EGB$NOMBRE) ## Variable de interes nombre UPZ (categorica)
+
+#establecimientos de alojamiento turistico
+T_EAT <- st_read("../stores/establecimientos alojamiento turistico.geojson")
+print(T_EAT)
+summary(T_EAT$Division) ## Variable de interes densidad establecimientos (continua)
+table(T_EAT$Clases) ## Variable de interes densidad establecimientos (categorica)
+
+#Colegios
+colegios <- st_read("../stores/colegios.geojson")
+colegios <- st_transform(colegios, crs = 4686) #proyectar a coordenadas MAGNA-SIRGAS
+print(colegios)
+
+#incidentes delictivos
+incidentes <- st_read("../stores/IRSCAT.geojson")
+print(incidentes) ## pendiente revisar si vale la pena incluir estos datos o existe colinealidad con el barrio
+
+#delitos de alto impacto
+delitos <- st_read("../stores/DAISCAT.geojson")
+print(delitos) ## pendiente revisar si vale la pena incluir estos datos o existe colinealidad con el barrio
+
+#zonas de interes turistico
+zonas_turisticas <- st_read("../stores/zitu.geojson")
+print(zonas_turisticas)
+table(zonas_turisticas$TIPOLOGÍA) #variable de interes, tipologia de la zona NA cuando no aplica
+
+#parques
+parques <- st_read("../stores/parques/Parque.shp")
+parques <- st_transform(parques, crs = 4686) #proyectar a coordenadas MAGNA-SIRGAS
+print(parques)
+
+#IPS (equipamientos de salud)
+IPS <- st_read("../stores/IPS.geojson")
+IPS <- st_transform(IPS, crs = 4686) #proyectar a coordenadas MAGNA-SIRGAS
+print(IPS)
+
+#Estaciones de TM
+TM <- st_read("../stores/Estaciones_TM.geojson")
+TM <- st_transform(TM, crs = 4686) #proyectar a coordenadas MAGNA-SIRGAS
+print(TM)
