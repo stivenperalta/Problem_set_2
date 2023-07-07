@@ -140,7 +140,6 @@ palabras2<-stopwords(language="es", source="nltk")
 
 palabras<-union(palabras1,palabras2)
 palabras<-stri_trans_general(str=palabras,id="Latin-ASCII")#sacamos las tildes
-palabras<-c(palabras,"m2") #agregamos m2
 palabras
 
 for (i in seq_along(db$tokens)) { #eliminamos las stopwords de tokens
@@ -215,8 +214,7 @@ db <- db %>%
 
 #Buscando areas
 db$area_texto <- sapply(db$ntokens, function(tokens) {
-  area_ngram <- grep("\\barea\\b", tokens, ignore.case = TRUE, value = TRUE)
-  if (length(area_ngram) > 0) {
+  area_ngram <- grep("\\b(area|metros\\s+cuadrados|m(?!2)\\b|metro\\s+cuadrado|mt2|mtrs|mts)\\b", tokens, ignore.case = TRUE, value = TRUE, perl = TRUE)  if (length(area_ngram) > 0) {
     number <- gsub("\\D+", "", area_ngram)
     as.numeric(number)
   } else {
@@ -225,7 +223,18 @@ db$area_texto <- sapply(db$ntokens, function(tokens) {
 })
 
 db$area_texto[is.na(db$area_texto)] <- 0 #reemplazando los NAs
- #reemplazando los c(NA,Na..)
+db$area_texto[sapply(db$area_texto, function(x) all(is.na(x)))] <- 0 #reemplazando los que tienen c(NA,NA...)
+
+db$area_texto <- sapply(db$area_texto, function(x) na.omit(unlist(x))) #sacamos de los elementos que tienen NAs y números, solo en numero
+db$area_texto <- sapply(db$area_texto, function(x) max(x, na.rm = TRUE)) #sacamos de los elementos que tienen varios números, el número más alto
+#reemplazando los c(NA,Na..)
+count <- sum(nchar(db$area_texto) > 1) #contando cuantos tienen error aun
+
+#juntando informacion de areas
+db$area <- pmax(db$surface_total, db$surface_covered, na.rm = TRUE) #primero ponemos el area mas grande entre surface_total y surface_covered
+db$area <- coalesce(db$area, db$area_texto)
+
+db$area <- ifelse(is.na(db$surface_total), db$area_texto, db$surface_total) #creamos una nueva variable "area" que tiene el valor de surface_total, si no está, de "area_texto"
 
 #Buscando baños
 
