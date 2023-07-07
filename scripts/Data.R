@@ -201,7 +201,7 @@ db <- db %>%
   mutate(parqueadero = coalesce(parqueadero, 0),
          chimenea = coalesce(chimenea, 0),
          balcon= coalesce(balcon,0),
-         vigilancia= coalesce(seguridad,0),
+         vigilancia= coalesce(vigilancia,0),
          gimnasio= coalesce(gimnasio,0),
          jardin=coalesce(jardin,0),
          bbq=coalesce(bbq,0),
