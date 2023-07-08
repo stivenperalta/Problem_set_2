@@ -12,7 +12,7 @@ p_load(ggplot2, rio, tidyverse, skimr, caret,
        boot, readxl, knitr, kableExtra,
        glmnet, sf, tmaptools, leaflet,
        tokenizers, stopwords, SnowballC,
-       stringi, dplyr) # Cargar varios paquetes al tiempo
+       stringi, dplyr, stringr) # Cargar varios paquetes al tiempo
 
 
 
@@ -58,7 +58,8 @@ map
 
 
 # Checking existing variables ---------------------------------------------
-
+#GENERAL
+glimpse(db)
 
 #CITY
 table(db$city) #revisamos que no hayan errores de entrada en esta variable, todas son Bogotá D.C
@@ -119,6 +120,11 @@ head(test$description)
 tail(db$description)# parece que no hay tildes ni puntos ni comas ni mayúsculas
 
 # Getting info from Description -------------------------------------------
+#Reemplazando
+db$description <- gsub("\\bm2\\b", "m", db$description)
+db$description <- gsub("\\bmt2\\b", "mt", db$description)
+db$description <- gsub("\\bmts2\\b", "mts", db$description)
+
 
 #Tokenization
 db$tokens<-tokenize_words(db$description) #esto corta todas las palabras
@@ -132,7 +138,14 @@ db$ntokens<-tokenize_ngrams(x=db$description,
                            ngram_delim=" ", #tokens separados por espacios
                            simplify=FALSE) #se crea lista de trigrams
 
-db$ntokens[[1]]
+db$n2tokens<-tokenize_ngrams(x=db$description, #uno de 2 para lo de areass
+                            lowercase=TRUE, #convierte todo a lower case, aunque ya estaba, just in case
+                            n=2L, #lenght del n-gram (trigram en este caso)
+                            n_min=2L, #solo se hacen de 3 
+                            stopwords=character(), #stopwords que sean excluidas del tokenization. está vacío
+                            ngram_delim=" ", #tokens separados por espacios
+                            simplify=FALSE) #se crea lista de trigrams
+
 
 #Stop words
 palabras1<-stopwords(language="es",source="snowball")
@@ -148,6 +161,7 @@ for (i in seq_along(db$tokens)) { #eliminamos las stopwords de tokens
 db$tokens[[2]]
 
 #sacamos grams que comiencen o finalicen en palabras stop
+#3gram
 db$ntokens <- lapply(db$ntokens, function(row) { #aplica una función a cada fila de db$ntokens
   row[!sapply(row, function(ngram) {
     words <- unlist(strsplit(ngram, "\\s+")) #parte cada ngram en palabras y lo cuarda en words
@@ -156,7 +170,16 @@ db$ntokens <- lapply(db$ntokens, function(row) { #aplica una función a cada fil
                                                                 #se marca para removerla
   })]
 })
-db$ntokens[[2]]
+
+#2gram
+db$n2tokens <- lapply(db$n2tokens, function(row) { #aplica una función a cada fila de db$ntokens
+  row[!sapply(row, function(ngram) {
+    words <- unlist(strsplit(ngram, "\\s+")) #parte cada ngram en palabras y lo cuarda en words
+    words[1] %in% palabras || words[length(words)] %in% palabras #chequea si la primera o ultima palabra en words 
+    #está en palabras usando %in%. Si alguna condición es verdad
+    #se marca para removerla
+  })]
+})
 
 #Stemming- FALTA
 #db$tokens<-wordStem(db$tokens, "spanish")
@@ -182,7 +205,7 @@ for (i in seq_along(db$tokens)) {
   }
 }
 
-#tokens de más de una palabra
+#tokens de 3 palabra
 for (i in seq_along(db$ntokens)) {
   for (j in seq_along(db$ntokens[[i]])) {
     for (k in seq_along(ncaracteristicas)) {
@@ -213,10 +236,11 @@ db <- db %>%
          `conjunto cerrado`=coalesce(`conjunto cerrado`,0))
 
 #Buscando areas
-db$area_texto <- sapply(db$ntokens, function(tokens) {
-  area_ngram <- grep("\\b(area|metros\\s+cuadrados|m(?!2)\\b|metro\\s+cuadrado|mt2|mtrs|mts)\\b", tokens, ignore.case = TRUE, value = TRUE, perl = TRUE)  if (length(area_ngram) > 0) {
-    number <- gsub("\\D+", "", area_ngram)
-    as.numeric(number)
+db$area_texto <- sapply(db$n2tokens, function(tokens) {
+  area_ngram <- grep("\\b(area|metro|metros|mt|mets|cuadrado|cuadrados|m|metro|mts)\\b", tokens, ignore.case = TRUE, value = TRUE)
+  if (length(area_ngram) > 0) {
+    numbers <- gsub("\\D+", "", area_ngram)
+    as.numeric(numbers)
   } else {
     NA
   }
@@ -232,9 +256,8 @@ count <- sum(nchar(db$area_texto) > 1) #contando cuantos tienen error aun
 
 #juntando informacion de areas
 db$area <- pmax(db$surface_total, db$surface_covered, na.rm = TRUE) #primero ponemos el area mas grande entre surface_total y surface_covered
-db$area <- coalesce(db$area, db$area_texto)
+db$area <- coalesce(db$area, db$area_texto) #reemplazamos la variable area con el valor sacado de la descripción en caso area sea NA
 
-db$area <- ifelse(is.na(db$surface_total), db$area_texto, db$surface_total) #creamos una nueva variable "area" que tiene el valor de surface_total, si no está, de "area_texto"
 
 #Buscando baños
 
