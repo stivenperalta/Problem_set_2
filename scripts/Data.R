@@ -121,7 +121,17 @@ tail(db$description)# parece que no hay tildes ni puntos ni comas ni mayúsculas
 
 # Getting info from Description -------------------------------------------
 #Reemplazando
-db$description <- gsub("\\bm2\\b", "m", db$description)
+db$description <- gsub("(?<=\\d)(?<!\\s)(m2)", " \\1", db$description, perl = TRUE) #para reemplazar numeros pegados a m2 ie: 50m2 -> 50 m2
+db$description <- gsub("(?<=\\d)(?<!\\s)(mt2)", " \\1", db$description, perl = TRUE)
+db$description <- gsub("(?<=\\d)(?<!\\s)(mts2)", " \\1", db$description, perl = TRUE)
+db$description <- gsub("(?<=\\d)(?<!\\s)(metros)", " \\1", db$description, perl = TRUE) 
+db$description <- gsub("(?<=\\d)(?<!\\s)(metro)", " \\1", db$description, perl = TRUE)
+db$description <- gsub("(?<=\\d)(?<!\\s)(m)", " \\1", db$description, perl = TRUE)
+
+db$description <- gsub("\\b(mt[a-z]?[0-9]+)\\b", "mts", db$description) #para arreglar errores cuando ponen por ejemplo 230mts23
+db$description <- gsub("\\bm2[0-9]+\\b", "mts", db$description) #para arreglar cuando hay m2 concatenado a mas numeros e.g. obs 360
+
+db$description <- gsub("\\bm2\\b", "m", db$description) #para evitar problemas con los "2" cuando hacemos los loops para sacar el area
 db$description <- gsub("\\bmt2\\b", "mt", db$description)
 db$description <- gsub("\\bmts2\\b", "mts", db$description)
 
@@ -174,7 +184,7 @@ db$ntokens <- lapply(db$ntokens, function(row) { #aplica una función a cada fil
 #2gram
 db$n2tokens <- lapply(db$n2tokens, function(row) { #aplica una función a cada fila de db$ntokens
   row[!sapply(row, function(ngram) {
-    words <- unlist(strsplit(ngram, "\\s+")) #parte cada ngram en palabras y lo cuarda en words
+    words <- unlist(strsplit(ngram, "\\s+")) #parte cada ngram en palabras y lo guarda en words
     words[1] %in% palabras || words[length(words)] %in% palabras #chequea si la primera o ultima palabra en words 
     #está en palabras usando %in%. Si alguna condición es verdad
     #se marca para removerla
@@ -251,13 +261,14 @@ db$area_texto[sapply(db$area_texto, function(x) all(is.na(x)))] <- 0 #reemplazan
 
 db$area_texto <- sapply(db$area_texto, function(x) na.omit(unlist(x))) #sacamos de los elementos que tienen NAs y números, solo en numero
 db$area_texto <- sapply(db$area_texto, function(x) max(x, na.rm = TRUE)) #sacamos de los elementos que tienen varios números, el número más alto
-#reemplazando los c(NA,Na..)
-count <- sum(nchar(db$area_texto) > 1) #contando cuantos tienen error aun
 
 #juntando informacion de areas
 db$area <- pmax(db$surface_total, db$surface_covered, na.rm = TRUE) #primero ponemos el area mas grande entre surface_total y surface_covered
 db$area <- coalesce(db$area, db$area_texto) #reemplazamos la variable area con el valor sacado de la descripción en caso area sea NA
 
+sum(db$area==0) #cuantos aún tienen missing
+
+arreglar <- db[db$area == 0, ] #para ver una lista de lo que falta arreglar
 
 #Buscando baños
 
