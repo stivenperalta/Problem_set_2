@@ -134,11 +134,10 @@ db$description <- gsub("\\bm2[0-9]+\\b", "mts", db$description) #para arreglar c
 db$description <- gsub("\\bm2\\b", "m", db$description) #para evitar problemas con los "2" cuando hacemos los loops para sacar el area
 db$description <- gsub("\\bmt2\\b", "mt", db$description)
 db$description <- gsub("\\bmts2\\b", "mts", db$description)
-
+db$description <- gsub("\\bmtrs2\\b", "mts", db$description)
 
 #Tokenization
 db$tokens<-tokenize_words(db$description) #esto corta todas las palabras
-head(db$tokens)
 
 db$ntokens<-tokenize_ngrams(x=db$description,
                            lowercase=TRUE, #convierte todo a lower case, aunque ya estaba, just in case
@@ -178,16 +177,6 @@ db$ntokens <- lapply(db$ntokens, function(row) { #aplica una función a cada fil
     words[1] %in% palabras || words[length(words)] %in% palabras #chequea si la primera o ultima palabra en words 
                                                                 #está en palabras usando %in%. Si alguna condición es verdad
                                                                 #se marca para removerla
-  })]
-})
-
-#2gram
-db$n2tokens <- lapply(db$n2tokens, function(row) { #aplica una función a cada fila de db$ntokens
-  row[!sapply(row, function(ngram) {
-    words <- unlist(strsplit(ngram, "\\s+")) #parte cada ngram en palabras y lo guarda en words
-    words[1] %in% palabras || words[length(words)] %in% palabras #chequea si la primera o ultima palabra en words 
-    #está en palabras usando %in%. Si alguna condición es verdad
-    #se marca para removerla
   })]
 })
 
@@ -247,7 +236,7 @@ db <- db %>%
 
 #Buscando areas
 db$area_texto <- sapply(db$n2tokens, function(tokens) {
-  area_ngram <- grep("\\b(area|metro|metros|mt|mets|cuadrado|cuadrados|m|metro|mts)\\b", tokens, ignore.case = TRUE, value = TRUE)
+  area_ngram <- grep("\\b(area|metro|metros|mt|mets|cuadrado|cuadrados|m|metro|mts|mtrs|,mtr)\\b", tokens, ignore.case = TRUE, value = TRUE)
   if (length(area_ngram) > 0) {
     numbers <- gsub("\\D+", "", area_ngram)
     as.numeric(numbers)
@@ -268,11 +257,35 @@ db$area <- coalesce(db$area, db$area_texto) #reemplazamos la variable area con e
 
 sum(db$area==0) #cuantos aún tienen missing
 
+#Revisando progreso
 arreglar <- db[db$area == 0, ] #para ver una lista de lo que falta arreglar
+arreglar <- arreglar[, c("description", "n2tokens")] #dejamos solo las dos variables de interes para revisar con facilidad
 
 #Buscando baños
+db$bano_texto <- sapply(db$n2tokens, function(tokens) {
+  match <- grep("\\b(\\d+)\\s*bano(s)?\\b", tokens, ignore.case = TRUE, value = TRUE)
+  if (length(match) > 0) {
+    number <- gsub("\\D+", "", match)
+    as.numeric(number)
+  } else {
+    NA
+  }
+})
 
+#cambiar palabras uno. dos. etc a numeros
+
+#los que tienen NA contaran cuantas veces se repite la palabra bano
+if (any(is.na(db$bano_texto))) {
+  counts <- sapply(db$description, function(tokens) {
+    sum(grepl("\\b(bano|banos)\\b", tokens, ignore.case = TRUE))
+  })
+  db$bano_texto[is.na(db$bano_texto)] <- counts[is.na(db$bano_texto)]
+}
+
+sum(db$bano_texto==NA) #cuantos aún tienen missing
 #Buscando Rooms
 
-#superficie
+#piso
+
+
 
