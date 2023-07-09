@@ -136,6 +136,13 @@ db$description <- gsub("\\bmt2\\b", "mt", db$description)
 db$description <- gsub("\\bmts2\\b", "mts", db$description)
 db$description <- gsub("\\bmtrs2\\b", "mts", db$description)
 
+db$description<-gsub("\\dos\\b","2",db$description)
+db$description<-gsub("\\tres\\b","3",db$description)
+db$description<-gsub("\\cuatro\\b","4",db$description)
+db$description<-gsub("\\cinco\\b","5",db$description)
+db$description<-gsub("\\seis\\b","6",db$description)
+
+
 #Tokenization
 db$tokens<-tokenize_words(db$description) #esto corta todas las palabras
 
@@ -238,7 +245,7 @@ db <- db %>%
          `zona de servicio`=coalesce(`zona de servicio`,0),
          `conjunto cerrado`=coalesce(`conjunto cerrado`,0))
 
-#Buscando areas
+#BUSCANDO AREAS
 db$area_texto <- sapply(db$n2tokens, function(tokens) {
   area_ngram <- grep("\\b(area|metro|metros|mt|mets|cuadrado|cuadrados|m|metro|mts|mtrs|mtr)\\b", tokens, ignore.case = TRUE, value = TRUE)
   if (length(area_ngram) > 0) {
@@ -265,7 +272,7 @@ sum(db$area==0) #cuantos aún tienen missing
 arreglar <- db[db$area == 0, ] #para ver una lista de lo que falta arreglar
 arreglar <- arreglar[, c("description", "n2tokens")] #dejamos solo las dos variables de interes para revisar con facilidad
 
-#Buscando baños
+#BUSCANDO BAÑOS
 db$bano_texto <- sapply(db$n2tokens, function(tokens) {
   match <- grep("\\b(bano|banos|bao|baos)\\b", tokens, ignore.case = TRUE, value = TRUE)
   if (length(match) > 0) {
