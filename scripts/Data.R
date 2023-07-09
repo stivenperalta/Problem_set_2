@@ -136,11 +136,11 @@ db$description <- gsub("\\bmt2\\b", "mt", db$description)
 db$description <- gsub("\\bmts2\\b", "mts", db$description)
 db$description <- gsub("\\bmtrs2\\b", "mts", db$description)
 
-db$description<-gsub("\\dos\\b","2",db$description)
-db$description<-gsub("\\tres\\b","3",db$description)
-db$description<-gsub("\\cuatro\\b","4",db$description)
-db$description<-gsub("\\cinco\\b","5",db$description)
-db$description<-gsub("\\seis\\b","6",db$description)
+db$description<-gsub("\\bdos\\b","2",db$description)
+db$description<-gsub("\\btres\\b","3",db$description)
+db$description<-gsub("\\bcuatro\\b","4",db$description)
+db$description<-gsub("\\bcinco\\b","5",db$description)
+db$description<-gsub("\\bseis\\b","6",db$description)
 
 
 #Tokenization
@@ -304,7 +304,7 @@ db$bano_texto[db$bano_texto == 0] <- counts[db$bano_texto == 0]
 #juntando informacion de banos
 db$banos <- coalesce(db$bathrooms, db$bano_texto) #agregamos a la variable banos el valor de bathrooms. si es NA, usamos el de bano_texto
 
-sum(db$area==0) #cuantos aún tienen missing
+sum(db$banos==0) #cuantos aún tienen missing
 
 
 
