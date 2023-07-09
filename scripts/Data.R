@@ -175,7 +175,7 @@ for (i in seq_along(db$tokens)) { #para eliminar las palabras stopwords
   db$tokens[[i]] <- db$tokens[[i]][!(db$tokens[[i]] %in% palabras)] #adapte el codigo para que no se eliminen las palabras repetidas
 }
 
-#sacamos grams que comiencen o finalicen en palabras stop
+#sacamos 3grams que comiencen o finalicen en palabras stop
 #3gram
 db$ntokens <- lapply(db$ntokens, function(row) { #aplica una función a cada fila de db$ntokens
   row[!sapply(row, function(ngram) {
@@ -305,12 +305,6 @@ db$bano_texto[db$bano_texto == 0] <- counts[db$bano_texto == 0]
 db$banos <- coalesce(db$bathrooms, db$bano_texto) #agregamos a la variable banos el valor de bathrooms. si es NA, usamos el de bano_texto
 
 sum(db$banos==0) #cuantos aún tienen missing
-
-
-
-#Buscando Rooms
-
-#piso
 
 
 
