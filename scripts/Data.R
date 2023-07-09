@@ -277,20 +277,21 @@ db$bano_texto <- sapply(db$n2tokens, function(tokens) {
 db$bano_texto[is.na(db$bano_texto)] <- 0 #reemplazando los NAs
 db$bano_texto[sapply(db$bano_texto, function(x) all(is.na(x)))] <- 0 #reemplazando los que tienen c(NA,NA...)
 
-db$bano_texto <- sapply(db$area_texto, function(x) na.omit(unlist(x))) #sacamos de los elementos que tienen NAs y números, solo en numero
-db$bano_texto <- sapply(db$area_texto, function(x) max(x, na.rm = TRUE)) #sacamos de los elementos que tienen varios números, el número más alto
-
-
+db$bano_texto <- sapply(db$bano_texto, function(x) na.omit(unlist(x))) #sacamos de los elementos que tienen NAs y números, solo en numero
+db$bano_texto <- sapply(db$bano_texto, function(x) max(x, na.rm = TRUE)) #sacamos de los elementos que tienen varios números, el número más alto
 
 #cambiar palabras uno. dos. etc a numeros
 
-#los que tienen NA contaran cuantas veces se repite la palabra bano
-if (any(is.na(db$bano_texto))) {
-  counts <- sapply(db$tokens, function(tokens) {
-    sum(grepl("\\b(bano|banos|bao|baos)\\b", tokens, ignore.case = TRUE))
-  })
-  db$bano_texto[is.na(db$bano_texto)] <- counts[is.na(db$bano_texto)]
-}
+#los que tienen 0 contaran cuantas veces se repite la palabra bano, banos, bao, baos
+counts <- sapply(db$tokens, function(tokens) {
+  sum(grepl("\\b(bano|banos|bao|baos)\\b", tokens, ignore.case = TRUE))
+})
+db$bano_texto[db$bano_texto == 0] <- counts[db$bano_texto == 0]
+
+#juntando informacion de banos
+db$banos <- coalesce(db$bathrooms, db$bano_texto) #agregamos a la variable banos el valor de bathrooms. si es NA, usamos el de bano_texto
+
+sum(db$area==0) #cuantos aún tienen missing
 
 
 
