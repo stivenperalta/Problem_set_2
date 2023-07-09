@@ -150,7 +150,7 @@ db$ntokens<-tokenize_ngrams(x=db$description,
 db$n2tokens<-tokenize_ngrams(x=db$description, #uno de 2 para lo de areass
                             lowercase=TRUE, #convierte todo a lower case, aunque ya estaba, just in case
                             n=2L, #lenght del n-gram (trigram en este caso)
-                            n_min=2L, #solo se hacen de 3 
+                            n_min=2L, #solo se hacen de 2
                             stopwords=character(), #stopwords que sean excluidas del tokenization. está vacío
                             ngram_delim=" ", #tokens separados por espacios
                             simplify=FALSE) #se crea lista de trigrams
@@ -164,10 +164,9 @@ palabras<-union(palabras1,palabras2)
 palabras<-stri_trans_general(str=palabras,id="Latin-ASCII")#sacamos las tildes
 palabras
 
-for (i in seq_along(db$tokens)) { #eliminamos las stopwords de tokens
-  db$tokens[[i]]<-setdiff(db$tokens[[i]],palabras)
-} 
-db$tokens[[2]]
+for (i in seq_along(db$tokens)) { #para eliminar las palabras stopwords
+  db$tokens[[i]] <- db$tokens[[i]][!(db$tokens[[i]] %in% palabras)] #adapte el codigo para que no se eliminen las palabras repetidas
+}
 
 #sacamos grams que comiencen o finalicen en palabras stop
 #3gram
@@ -236,7 +235,7 @@ db <- db %>%
 
 #Buscando areas
 db$area_texto <- sapply(db$n2tokens, function(tokens) {
-  area_ngram <- grep("\\b(area|metro|metros|mt|mets|cuadrado|cuadrados|m|metro|mts|mtrs|,mtr)\\b", tokens, ignore.case = TRUE, value = TRUE)
+  area_ngram <- grep("\\b(area|metro|metros|mt|mets|cuadrado|cuadrados|m|metro|mts|mtrs|mtr)\\b", tokens, ignore.case = TRUE, value = TRUE)
   if (length(area_ngram) > 0) {
     numbers <- gsub("\\D+", "", area_ngram)
     as.numeric(numbers)
@@ -263,26 +262,29 @@ arreglar <- arreglar[, c("description", "n2tokens")] #dejamos solo las dos varia
 
 #Buscando baños
 db$bano_texto <- sapply(db$n2tokens, function(tokens) {
-  match <- grep("\\b(\\d+)\\s*bano(s)?\\b", tokens, ignore.case = TRUE, value = TRUE)
+  match <- grep("\\b(bano|banos|bao|baos)\\b", tokens, ignore.case = TRUE, value = TRUE)
   if (length(match) > 0) {
-    number <- gsub("\\D+", "", match)
-    as.numeric(number)
+    numbers <- gsub("\\D+", "", match)
+    as.numeric(numbers)
   } else {
     NA
   }
 })
 
+db$bano_texto[is.na(db$bano_texto)] <- 0 #convertimos los NAs en 0s
+
 #cambiar palabras uno. dos. etc a numeros
 
 #los que tienen NA contaran cuantas veces se repite la palabra bano
 if (any(is.na(db$bano_texto))) {
-  counts <- sapply(db$description, function(tokens) {
-    sum(grepl("\\b(bano|banos)\\b", tokens, ignore.case = TRUE))
+  counts <- sapply(db$tokens, function(tokens) {
+    sum(grepl("\\b(bano|banos|bao|baos)\\b", tokens, ignore.case = TRUE))
   })
   db$bano_texto[is.na(db$bano_texto)] <- counts[is.na(db$bano_texto)]
 }
 
-sum(db$bano_texto==NA) #cuantos aún tienen missing
+
+
 #Buscando Rooms
 
 #piso
