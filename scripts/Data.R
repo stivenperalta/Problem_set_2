@@ -245,6 +245,10 @@ db <- db %>%
          `zona de servicio`=coalesce(`zona de servicio`,0),
          `conjunto cerrado`=coalesce(`conjunto cerrado`,0))
 
+for (caracteristica in caracteristicas) { #cambiandolas a numericas
+  db[[caracteristica]] <- as.numeric(db[[caracteristica]])
+}
+
 #BUSCANDO AREAS
 db$area_texto <- sapply(db$n2tokens, function(tokens) {
   area_ngram <- grep("\\b(area|metro|metros|mt|mets|cuadrado|cuadrados|m|metro|mts|mtrs|mtr)\\b", tokens, ignore.case = TRUE, value = TRUE)
