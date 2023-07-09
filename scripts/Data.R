@@ -198,7 +198,9 @@ ncaracteristicas<-c("casa multifamiliar","cuarto de servicio", "zona de servicio
 for (i in seq_along(db$tokens)) {
   for (j in seq_along(db$tokens[[i]])) {
     for (k in seq_along(caracteristicas)) {
-      if (grepl(caracteristicas[k], db$tokens[[i]][[j]], ignore.case = TRUE)) {
+      pattern <- caracteristicas[k]
+      matches <- agrep(pattern, db$tokens[[i]][[j]], ignore.case = TRUE) #usando agrep hace fuzzy matching por si las palabras estan escritas un poco distintas
+      if (length(matches) > 0) {
         db[i, caracteristicas[k]] <- 1
         break
       }
