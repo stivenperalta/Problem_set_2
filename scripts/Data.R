@@ -179,6 +179,9 @@ db$ntokens <- lapply(db$ntokens, function(row) { #aplica una función a cada fil
   })]
 })
 
+
+
+
 #Stemming- FALTA
 #db$tokens<-wordStem(db$tokens, "spanish")
 
@@ -271,7 +274,13 @@ db$bano_texto <- sapply(db$n2tokens, function(tokens) {
   }
 })
 
-db$bano_texto[is.na(db$bano_texto)] <- 0 #convertimos los NAs en 0s
+db$bano_texto[is.na(db$bano_texto)] <- 0 #reemplazando los NAs
+db$bano_texto[sapply(db$bano_texto, function(x) all(is.na(x)))] <- 0 #reemplazando los que tienen c(NA,NA...)
+
+db$bano_texto <- sapply(db$area_texto, function(x) na.omit(unlist(x))) #sacamos de los elementos que tienen NAs y números, solo en numero
+db$bano_texto <- sapply(db$area_texto, function(x) max(x, na.rm = TRUE)) #sacamos de los elementos que tienen varios números, el número más alto
+
+
 
 #cambiar palabras uno. dos. etc a numeros
 
