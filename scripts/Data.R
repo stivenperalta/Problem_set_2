@@ -36,27 +36,6 @@ db<-rbind(test,train) #juntamos ambas bases
 names(db) #vemos las variables disponibles
 summary(db)
 
-
-# Setting the location ---------------------------------------------------
-db<- st_as_sf( #para convertirlo en un spatial data frame
-  db,
-  coords = c("lon", "lat"), #primero longitud, luego latitud
-  crs = 4326 #EPSG:4326=WGS84 (World Geodetic System 1984)
-)
-
-pal <- colorFactor(
-  palette = c('#d9bf0d', '#00b6f1'),
-  domain = db$sample #variable for which the color vector should be applied to
-)
-
-map<-leaflet() %>% 
-  addTiles() %>%  #capa base
-  addCircles(data=db,col=~pal(sample))%>% #pintar casas en base ala funcion pal que creamos arriba
-  
-map 
-
-
-
 # Checking existing variables ---------------------------------------------
 #GENERAL
 glimpse(db)
@@ -83,7 +62,7 @@ ggplot(train, aes(x = surface_total, y = price, color = property_type)) +
 
 #MONTH YEAR- CREAMOS UNA VARIABLE UNIENDO MES Y AÑO
 typeof(c(db$month, db$year))#revisamos que tipo son (double)
-train$date<-as.Date(paste(db$year, db$month,"1", sep = "-")) #se creo variable con formato YYYY-MM-01
+db$date<-as.Date(paste(db$year, db$month,"1", sep = "-")) #se creo variable con formato YYYY-MM-01
 
 #SURFACE TOTAL
 
@@ -185,8 +164,6 @@ db$ntokens <- lapply(db$ntokens, function(row) { #aplica una función a cada fil
                                                                 #se marca para removerla
   })]
 })
-
-
 
 
 #Stemming- FALTA
