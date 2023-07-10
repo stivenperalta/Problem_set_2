@@ -6,15 +6,12 @@
 
 rm(list = ls()) # Limpiar Rstudio
 
-require(pacman)
-p_load(ggplot2, rio, tidyverse, skimr, caret, 
+pacman::p_load(ggplot2, rio, tidyverse, skimr, caret, 
        rvest, magrittr, rstudioapi, stargazer, 
        boot, readxl, knitr, kableExtra,
        glmnet, sf, tmaptools, leaflet,
        tokenizers, stopwords, SnowballC,
-       stringi, dplyr, stringr) # Cargar varios paquetes al tiempo
-
-
+       stringi, dplyr, stringr, sp) # Cargar paquetes requeridos
 
 #Definir el directorio
 path_script<-rstudioapi::getActiveDocumentContext()$path
@@ -36,7 +33,6 @@ db<-rbind(test,train) #juntamos ambas bases
 names(db) #vemos las variables disponibles
 summary(db)
 
-
 # Setting the location ---------------------------------------------------
 db<- st_as_sf( #para convertirlo en un spatial data frame
   db,
@@ -51,11 +47,10 @@ pal <- colorFactor(
 
 map<-leaflet() %>% 
   addTiles() %>%  #capa base
-  addCircles(data=db,col=~pal(sample))%>% #pintar casas en base ala funcion pal que creamos arriba
+  addCircles(data=db,col=~pal(sample)) #pintar casas en base ala funcion pal que creamos arriba
   
 map 
-
-
+rm(map,path_folder,path_script) # Limpio objetos de poco interés en mi ambiente
 
 # Checking existing variables ---------------------------------------------
 #GENERAL
@@ -65,14 +60,17 @@ glimpse(db)
 table(db$city) #revisamos que no hayan errores de entrada en esta variable, todas son Bogotá D.C
 
 #PRICE (para train)
-br = seq(3.000e+08,1.650e+09,by=50000000) # creamos los braquets/bins
-ranges = paste(head(br,-1), br[-1], sep=" - ") #creamos los rangos en base a los braquets
-freq   = hist(train$price, breaks=br, include.lowest=TRUE, plot=TRUE, 
-              
-              col="#00b6f1", border="#d9bf0d",
-              xlab="Precio en COP", ylab="Número de inmuebles",main="Distribución de Precios en Bogotá") #sacamos la frecuencia para cada uno de los braquets
+hist(train$price,
+     breaks = seq(3.000e+08,1.650e+09,by=50000000),
+     col = "lightblue",
+     main = "Distribución de Precios en Bogotá",
+     xlab = "Precio en COP", ylab = "Número de inmuebles") #creo el histograma
 
-data.frame(range = ranges, frequency = freq$counts) #tabla de frecuencia con bins
+# Tabla de frecuencia del precio train
+frequency_table <- train$price %>%
+  cut(breaks = seq(3.000e+08, 1.650e+09, by = 50000000), include.lowest = TRUE, right = FALSE) %>%
+  table()
+as.data.frame(frequency_table)
 
 #Scatterplot de precios por tipo de vivienda (apartamento/casa) (para train)
 ggplot(train, aes(x = surface_total, y = price, color = property_type)) +
@@ -80,10 +78,9 @@ ggplot(train, aes(x = surface_total, y = price, color = property_type)) +
   scale_color_manual(values = c("#00b6f1","#d9bf0d")) +
   labs(x = "Superficie Total", y = "Precio", title = "Precios de Inmuebles por superficie")
 
-
 #MONTH YEAR- CREAMOS UNA VARIABLE UNIENDO MES Y AÑO
 typeof(c(db$month, db$year))#revisamos que tipo son (double)
-train$date<-as.Date(paste(db$year, db$month,"1", sep = "-")) #se creo variable con formato YYYY-MM-01
+db$date <- as.Date(paste(db$year, db$month,"1", sep = "-")) #se creo variable con formato YYYY-MM-01
 
 #SURFACE TOTAL
 
@@ -105,8 +102,9 @@ pie_pt <- ggplot(pt, aes(x = "", y = Freq, fill = Var1)) +
   coord_polar("y", start = 0) +
   theme_void() +
   scale_fill_manual(values = c("#d9bf0d", "#00b6f1")) +
-  labs(title = "Pie Chart")
-
+  labs(title = "Gráfico Pie de la distribución entre
+  casas y apartamentos a la venta")+
+  theme(plot.title = element_text(hjust = 0.5))
 pie_pt
 
 #OPERATION TYPE
@@ -121,39 +119,72 @@ tail(db$description)# parece que no hay tildes ni puntos ni comas ni mayúsculas
 
 # Getting info from Description -------------------------------------------
 #Reemplazando
-db$description <- gsub("(?<=\\d)(?<!\\s)(m2)", " \\1", db$description, perl = TRUE) #para reemplazar numeros pegados a m2 ie: 50m2 -> 50 m2
-db$description <- gsub("(?<=\\d)(?<!\\s)(mt2)", " \\1", db$description, perl = TRUE)
-db$description <- gsub("(?<=\\d)(?<!\\s)(mts2)", " \\1", db$description, perl = TRUE)
-db$description <- gsub("(?<=\\d)(?<!\\s)(metros)", " \\1", db$description, perl = TRUE) 
-db$description <- gsub("(?<=\\d)(?<!\\s)(metro)", " \\1", db$description, perl = TRUE)
-db$description <- gsub("(?<=\\d)(?<!\\s)(m)", " \\1", db$description, perl = TRUE)
+db$description <- gsub("(?<=\\d)(?<!\\s)(m2|mt2|mts2|metros|metro|m)", " \\1", db$description, perl = TRUE) #para reemplazar numeros pegados a m2 ie: 50m2 -> 50 m2
+db$description <- gsub("\\b(mt[a-z]?[0-9]+)(m2[0-9]+)\\b", "mts", db$description) #para arreglar errores cuando ponen por ejemplo 230mts23 y cuando hay m2 concatenado a mas numeros e.g. obs 360
+db$description <- gsub("\\b(m2|mt2|mts2|mtrs2)\\b", "mts", db$description) #para evitar problemas con los "2" cuando hacemos los loops para sacar el area
+db$description <- str_replace_all(db$description, # reemplazo las palabras numéricas en números
+                                  c("\\buno\\b" = "1",
+                                    "\\bdos\\b" = "2",
+                                    "\\btres\\b" = "3",
+                                    "\\bcuatro\\b" = "4",
+                                    "\\bcinco\\b" = "5",
+                                    "\\bseis\\b" = "6",
+                                    "\\bsiete\\b" = "7",
+                                    "\\bocho\\b" = "8",
+                                    "\\bnueve\\b" = "9",
+                                    "\\bcero\\b" = "0"))
 
-db$description <- gsub("\\b(mt[a-z]?[0-9]+)\\b", "mts", db$description) #para arreglar errores cuando ponen por ejemplo 230mts23
-db$description <- gsub("\\bm2[0-9]+\\b", "mts", db$description) #para arreglar cuando hay m2 concatenado a mas numeros e.g. obs 360
+# Instalar y cargar el paquete 'hunspell'
+pacman::p_load(hunspell)
 
-db$description <- gsub("\\bm2\\b", "m", db$description) #para evitar problemas con los "2" cuando hacemos los loops para sacar el area
-db$description <- gsub("\\bmt2\\b", "mt", db$description)
-db$description <- gsub("\\bmts2\\b", "mts", db$description)
-db$description <- gsub("\\bmtrs2\\b", "mts", db$description)
+# Crear un objeto de corrección ortográfica en español
+es_dict <- hunspell("es")
 
-db$description<-gsub("\\bdos\\b","2",db$description)
-db$description<-gsub("\\btres\\b","3",db$description)
-db$description<-gsub("\\bcuatro\\b","4",db$description)
-db$description<-gsub("\\bcinco\\b","5",db$description)
-db$description<-gsub("\\bseis\\b","6",db$description)
+# Definir una función para corregir palabras
+corregir_palabra <- function(palabra) {
+  if (!hunspell_check(es_dict, palabra)) {
+    sugerencias <- hunspell_suggest(es_dict, palabra)
+    if (length(sugerencias) > 0) {
+      return(sugerencias[1])
+    }
+  }
+  return(palabra)
+}
+
+# Aplicar la función corregir_palabra a cada palabra en db$tokens
+db$tokens_corregidos <- sapply(db$tokens, corregir_palabra)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 #Tokenization
 db$tokens<-tokenize_words(db$description) #esto corta todas las palabras
-
-db$ntokens<-tokenize_ngrams(x=db$description,
-                           lowercase=TRUE, #convierte todo a lower case, aunque ya estaba, just in case
-                           n=3L, #lenght del n-gram (trigram en este caso)
-                           n_min=3L, #solo se hacen de 3 
-                           stopwords=character(), #stopwords que sean excluidas del tokenization. está vacío
-                           ngram_delim=" ", #tokens separados por espacios
-                           simplify=FALSE) #se crea lista de trigrams
-
 db$n2tokens<-tokenize_ngrams(x=db$description, #uno de 2 para lo de areass
                             lowercase=TRUE, #convierte todo a lower case, aunque ya estaba, just in case
                             n=2L, #lenght del n-gram (trigram en este caso)
@@ -161,7 +192,13 @@ db$n2tokens<-tokenize_ngrams(x=db$description, #uno de 2 para lo de areass
                             stopwords=character(), #stopwords que sean excluidas del tokenization. está vacío
                             ngram_delim=" ", #tokens separados por espacios
                             simplify=FALSE) #se crea lista de trigrams
-
+db$n3tokens<-tokenize_ngrams(x=db$description,
+                             lowercase=TRUE, #convierte todo a lower case, aunque ya estaba, just in case
+                             n=3L, #lenght del n-gram (trigram en este caso)
+                             n_min=3L, #solo se hacen de 3 
+                             stopwords=character(), #stopwords que sean excluidas del tokenization. está vacío
+                             ngram_delim=" ", #tokens separados por espacios
+                             simplify=FALSE) #se crea lista de trigrams
 
 #Stop words
 palabras1<-stopwords(language="es",source="snowball")
@@ -177,7 +214,7 @@ for (i in seq_along(db$tokens)) { #para eliminar las palabras stopwords
 
 #sacamos 3grams que comiencen o finalicen en palabras stop
 #3gram
-db$ntokens <- lapply(db$ntokens, function(row) { #aplica una función a cada fila de db$ntokens
+db$n2tokens <- lapply(db$n2tokens, function(row) { #aplica una función a cada fila de db$n2tokens
   row[!sapply(row, function(ngram) {
     words <- unlist(strsplit(ngram, "\\s+")) #parte cada ngram en palabras y lo cuarda en words
     words[1] %in% palabras || words[length(words)] %in% palabras #chequea si la primera o ultima palabra en words 
@@ -187,10 +224,8 @@ db$ntokens <- lapply(db$ntokens, function(row) { #aplica una función a cada fil
 })
 
 
-
-
-#Stemming- FALTA
-#db$tokens<-wordStem(db$tokens, "spanish")
+#Stemming
+db$raiztokens<-wordStem(db$tokens, "spanish")
 
 #Variables of interest
 caracteristicas<-c("parqueadero","chimenea","balcon",
@@ -216,10 +251,10 @@ for (i in seq_along(db$tokens)) {
 }
 
 #tokens de 3 palabra
-for (i in seq_along(db$ntokens)) {
-  for (j in seq_along(db$ntokens[[i]])) {
+for (i in seq_along(db$n2tokens)) {
+  for (j in seq_along(db$n2tokens[[i]])) {
     for (k in seq_along(ncaracteristicas)) {
-      if (grepl(ncaracteristicas[k], db$ntokens[[i]][[j]], ignore.case = TRUE)) {
+      if (grepl(ncaracteristicas[k], db$n2tokens[[i]][[j]], ignore.case = TRUE)) {
         db[i, ncaracteristicas[k]] <- 1
         break
       }
@@ -294,7 +329,7 @@ db$bano_texto <- sapply(db$bano_texto, function(x) na.omit(unlist(x))) #sacamos 
 db$bano_texto <- sapply(db$bano_texto, function(x) max(x, na.rm = TRUE)) #sacamos de los elementos que tienen varios números, el número más alto
 
 #cambiar palabras uno. dos. etc a numeros
-
+ 
 #los que tienen 0 contaran cuantas veces se repite la palabra bano, banos, bao, baos
 counts <- sapply(db$tokens, function(tokens) {
   sum(grepl("\\b(bano|banos|bao|baos)\\b", tokens, ignore.case = TRUE))
@@ -306,5 +341,8 @@ db$banos <- coalesce(db$bathrooms, db$bano_texto) #agregamos a la variable banos
 
 sum(db$banos==0) #cuantos aún tienen missing
 
-
+####################################
+# TAREAS PENDIENTES ##############
+# Revisar Missing values de todas las variables e imputar valores de las variables más importantes para evalucar #
+# Evaluar outliers ############################
 
