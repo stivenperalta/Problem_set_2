@@ -353,6 +353,7 @@ data <- data %>%
 
 #### exportamos dataset consolidado ####
 st_write(data, "../stores/data.geojson", driver = "GeoJSON")
+st_write(data, "../stores/data.shp")
 
-
-
+data <- st_read("../stores/data.geojson")
+head(data)
