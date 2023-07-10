@@ -27,7 +27,7 @@ p_load("tidyverse", #data wrangling
 ##cargamos la base de datos
 train <- read.csv("../stores/train.csv")
 train_sf <- st_as_sf(train, coords = c("lon", "lat"), crs = 4326) # indicamos como dato espacial
-
+ 
 ##visualizamos los datos
 ggplot()+
   geom_sf(data=train_sf)

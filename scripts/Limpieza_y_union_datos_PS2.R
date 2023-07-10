@@ -6,21 +6,19 @@
 
 rm(list = ls()) # Limpiar Rstudio
 
-require(pacman)
-p_load(ggplot2, rio, tidyverse, skimr, caret, 
+pacman::p_load(ggplot2, rio, tidyverse, skimr, caret, 
        rvest, magrittr, rstudioapi, stargazer, 
        boot, readxl, knitr, kableExtra,
        glmnet, sf, tmaptools, leaflet,
        tokenizers, stopwords, SnowballC,
        stringi, dplyr, stringr) # Cargar varios paquetes al tiempo
 
-
-
 #Definir el directorio
 path_script<-rstudioapi::getActiveDocumentContext()$path
 path_folder<-dirname(path_script) 
 setwd(path_folder)
 getwd()
+rm(path_folder,path_script)
 
 # Importing Data ----------------------------------------------------------
 
@@ -32,7 +30,6 @@ test<-test %>% mutate(sample="test")
 train<-train %>% mutate(sample="train")
 
 db<-rbind(test,train) #juntamos ambas bases
-
 names(db) #vemos las variables disponibles
 summary(db)
 
@@ -51,11 +48,9 @@ pal <- colorFactor(
 
 map<-leaflet() %>% 
   addTiles() %>%  #capa base
-  addCircles(data=db,col=~pal(sample))%>% #pintar casas en base ala funcion pal que creamos arriba
+  addCircles(data=db,col=~pal(sample)) #pintar casas en base ala funcion pal que creamos arriba
   
 map 
-
-
 
 # Checking existing variables ---------------------------------------------
 #GENERAL
@@ -83,7 +78,7 @@ ggplot(train, aes(x = surface_total, y = price, color = property_type)) +
 
 #MONTH YEAR- CREAMOS UNA VARIABLE UNIENDO MES Y AÑO
 typeof(c(db$month, db$year))#revisamos que tipo son (double)
-train$date<-as.Date(paste(db$year, db$month,"1", sep = "-")) #se creo variable con formato YYYY-MM-01
+db$date <- as.Date(paste(db$year, db$month,"1", sep = "-")) #se creo variable con formato YYYY-MM-01
 
 #SURFACE TOTAL
 
@@ -117,24 +112,19 @@ head(db$title)
 
 #DESCRIPTION
 head(test$description)
-tail(db$description)# parece que no hay tildes ni puntos ni comas ni mayúsculas
+substr(db$description, 1, 5000) # evalúo las primeras 5000 palabras del texto
+
+# Limpio texto
+db$description <- stri_trans_general(str = db$description, id = "Latin-ASCII") # Elimino acentos
+db$description <- gsub('[^A-Za-z0-9 ]+', ' ', db$description)
+db$description <- documento <- tolower(db$description)
+
 
 # Getting info from Description -------------------------------------------
 #Reemplazando
-db$description <- gsub("(?<=\\d)(?<!\\s)(m2)", " \\1", db$description, perl = TRUE) #para reemplazar numeros pegados a m2 ie: 50m2 -> 50 m2
-db$description <- gsub("(?<=\\d)(?<!\\s)(mt2)", " \\1", db$description, perl = TRUE)
-db$description <- gsub("(?<=\\d)(?<!\\s)(mts2)", " \\1", db$description, perl = TRUE)
-db$description <- gsub("(?<=\\d)(?<!\\s)(metros)", " \\1", db$description, perl = TRUE) 
-db$description <- gsub("(?<=\\d)(?<!\\s)(metro)", " \\1", db$description, perl = TRUE)
-db$description <- gsub("(?<=\\d)(?<!\\s)(m)", " \\1", db$description, perl = TRUE)
-
-db$description <- gsub("\\b(mt[a-z]?[0-9]+)\\b", "mts", db$description) #para arreglar errores cuando ponen por ejemplo 230mts23
-db$description <- gsub("\\bm2[0-9]+\\b", "mts", db$description) #para arreglar cuando hay m2 concatenado a mas numeros e.g. obs 360
-
-db$description <- gsub("\\bm2\\b", "m", db$description) #para evitar problemas con los "2" cuando hacemos los loops para sacar el area
-db$description <- gsub("\\bmt2\\b", "mt", db$description)
-db$description <- gsub("\\bmts2\\b", "mts", db$description)
-db$description <- gsub("\\bmtrs2\\b", "mts", db$description)
+db$description <- gsub("\\b(?<!\\s)(\\d+)(m2|mt2|mts2|metros|metro|m)\\b", " \\1 \\2", db$description, perl = TRUE) # reestructuro todo el texto relacionado con metros cuadrados
+db$description <- gsub("\\b(mt[a-z]?[0-9]+)(m2[0-9]+)\\b", "mts", db$description) #para arreglar errores cuando ponen por ejemplo 230mts23 y cuando hay m2 concatenado a mas numeros e.g. obs 360
+db$description <- gsub("\\bm2\\b|\\bmt2\\b|\\bmts2\\b|\\bmtrs2\\b", "m", db$description) #para evitar problemas con los "2" cuando hacemos los loops para sacar el area
 
 #Tokenization
 db$tokens<-tokenize_words(db$description) #esto corta todas las palabras
@@ -154,7 +144,7 @@ db$n2tokens<-tokenize_ngrams(x=db$description, #uno de 2 para lo de areass
                             stopwords=character(), #stopwords que sean excluidas del tokenization. está vacío
                             ngram_delim=" ", #tokens separados por espacios
                             simplify=FALSE) #se crea lista de trigrams
-
+substr(db$description, 1, 1000)
 
 #Stop words
 palabras1<-stopwords(language="es",source="snowball")
