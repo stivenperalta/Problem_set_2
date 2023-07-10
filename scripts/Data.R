@@ -83,7 +83,7 @@ typeof(c(db$month, db$year))#revisamos que tipo son (double)
 db$date <- as.Date(paste(db$year, db$month,"1", sep = "-")) #se creo variable con formato YYYY-MM-01
 
 #SURFACE TOTAL
-
+ 
 #SURFACE COVERED
 
 #ROOMS
