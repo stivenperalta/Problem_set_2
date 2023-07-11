@@ -11,7 +11,8 @@ pacman::p_load(ggplot2, rio, tidyverse, skimr, caret,
        boot, readxl, knitr, kableExtra,
        glmnet, sf, tmaptools, leaflet,
        tokenizers, stopwords, SnowballC,
-       stringi, dplyr, stringr, sp, hunspell) # Cargar paquetes requeridos
+       stringi, dplyr, stringr, sp, hunspell,
+       car) # Cargar paquetes requeridos
 
 #Definir el directorio
 path_script<-rstudioapi::getActiveDocumentContext()$path
@@ -118,9 +119,11 @@ head(test$description)
 tail(db$description)# parece que no hay tildes ni puntos ni comas ni mayúsculas
 
 # Getting info from Description -------------------------------------------
+#area|metro|metros|mt|mets|cuadrado|cuadrados|m|metro|mts|mtrs|mtr
+
 #Reemplazando
 db$description <- gsub("(?<=\\d)(?<!\\s)(m2|mt2|mts2|metros|metro|m)", " \\1", db$description, perl = TRUE) #para reemplazar numeros pegados a m2 ie: 50m2 -> 50 m2
-db$description <- gsub("\\b(mt[a-z]?[0-9]+)(m2[0-9]+)\\b", "mts", db$description) #para arreglar errores cuando ponen por ejemplo 230mts23 y cuando hay m2 concatenado a mas numeros e.g. obs 360
+db$description <- gsub("\\b(mt[a-z]?[0-9]+)(m2)(m)(metro[a-z]?)\\b", "mts", db$description) #para arreglar errores cuando ponen por ejemplo 230mts23 y cuando hay m2 concatenado a mas numeros e.g. obs 360
 db$description <- gsub("\\b(m2|mt2|mts2|mtrs2)\\b", "mts", db$description) #para evitar problemas con los "2" cuando hacemos los loops para sacar el area
 db$description <- str_replace_all(db$description, # reemplazo las palabras numéricas en números
                                   c("\\buno\\b" = "1",
@@ -131,8 +134,7 @@ db$description <- str_replace_all(db$description, # reemplazo las palabras numé
                                     "\\bseis\\b" = "6",
                                     "\\bsiete\\b" = "7",
                                     "\\bocho\\b" = "8",
-                                    "\\bnueve\\b" = "9",
-                                    "\\bcero\\b" = "0"))
+                                    "\\bnueve\\b" = "9"))
 #drop Stop words
 
 for (i in seq_along(db$description)) {
@@ -220,12 +222,50 @@ db$area_texto <- sapply(db$area_texto, function(x) max(x, na.rm = TRUE, 0)) #ree
 db$area <- pmax(db$surface_total, db$surface_covered, na.rm = TRUE) #primero ponemos el area mas grande entre surface_total y surface_covered
 db$area <- coalesce(db$area, db$area_texto) #reemplazamos la variable area con el valor sacado de la descripción en caso area sea NA
 
+#BUSCANDO BAÑOS
+db$bano_texto <- sapply(db$n2tokens, function(tokens) {
+  match <- grep("(\\d+)\\s*(?=\\b(bano|banos|bao|baos)\\b)", tokens, ignore.case = TRUE, perl = TRUE, value = TRUE)
+  if (length(match) > 0) {
+    numbers <- gsub("\\D+", "", match)
+    numbers <- as.numeric(numbers)
+    numbers <- numbers[numbers <= 10] #le ponemos este control en base a el número más alto en bathrooms (13)
+    if (length(numbers) > 0) {
+      numbers
+    } else {
+      NA
+    }
+  } else {
+    NA
+  }
+})
+
+db$bano_texto[is.na(db$bano_texto)] <- 0 #reemplazando los NAs
+db$bano_texto[sapply(db$bano_texto, function(x) all(is.na(x)))] <- 0 #reemplazando los que tienen c(NA,NA...)
+
+db$bano_texto <- sapply(db$bano_texto, function(x) na.omit(unlist(x))) #sacamos de los elementos que tienen NAs y números, solo en numero
+db$bano_texto <- sapply(db$bano_texto, function(x) max(x, na.rm = TRUE)) #sacamos de los elementos que tienen varios números, el número más alto
+
+#los que tienen 0 contaran cuantas veces se repite la palabra bano, banos, bao, baos
+counts <- sapply(db$tokens, function(tokens) {
+  sum(grepl("\\b(bano|banos|bao|baos)\\b", tokens, ignore.case = TRUE))
+})
+db$bano_texto[db$bano_texto == 0] <- counts[db$bano_texto == 0]
+
+glimpse(db)
+
+#juntando informacion de banos
+db$banos <- coalesce(db$bathrooms, db$bano_texto) #agregamos a la variable banos el valor de bathrooms. si es NA, usamos el de bano_texto
+
+#arreglando variables
+db$property_type<-as.factor(db$property_type)
+  
 # Evaluación de Outlier #######################################################
+
 # Evalúo outliers de las variables continuas
-var_outliers <- db[, c("price", "rooms", "bedrooms", "bathrooms", "area")]
+var_outliers <- db[, c("price", "bedrooms", "banos", "area")]
 
 # Establecer el diseño de la ventana de gráficos
-par(mfrow = c(2, 3))  # Ajusta los valores de "filas" y "columnas" según tus necesidades
+par(mfrow = c(2, 2))  # Ajusta los valores de "filas" y "columnas" según tus necesidades
 
 # Evalúo outliers de mis variables continuas con boxplot
 for (variable in colnames(var_outliers)) {
@@ -239,20 +279,25 @@ for (variable in colnames(var_outliers)) {
   outlier_test <- outlierTest(lm_outliers)
   cat("Variable:", variable, "\n")
   summary(lm_outliers)
+  outliers[[variable]]<-outlier_test
   print(outlier_test)
   cat("\n")
 }
 
-# analizo los outliers para evaluar la coherencia de las observaciones
-db[c(), # seleccionar aquí los valores atípicos de la variable 1 (el número de la observación)
-     c("price", "rooms", "bedrooms", "bathrooms")] # VARIABLE 1
 
 # analizo los outliers para evaluar la coherencia de las observaciones
-db[c(), # seleccionar aquí los valores atípicos de la variable 2 (el número de la observación)
-   c("price", "rooms", "bedrooms", "bathrooms")] # VARIABLE 2
+revisar<-db[c(11131,258,1838,1982,2293,4055,5134,6497,10594,10801,11269,29095,15057,32625,45392, 12131, 24044,25702, 33624, 46069, 4229,29932,31053,34382,31347,39599,43940), # seleccionar aquí los valores atípicos de la variable 1 (el número de la observación)
+     c("price", "area", "bedrooms", "banos", "property_type", "sample")] # VARIABLE 1
 
-#... Así para todas las variables con datos atípicos
+#sacamos observaciones que no tienen coherencia
+db<-db[-c(29932,31053,34382,31347,39599,43940),]
+db<-db[-c(9408, 24785,3652,36224,20976,34362,6578,21736,24624,12470),]
 
+#Scatterplot de precios por area y tipo de vivienda (apartamento/casa) (para train)
+ggplot(data = subset(db, sample == "train"), aes(x = price, y = area, color = property_type)) +
+  geom_point(size = 2) +
+  scale_color_manual(values = c("#00b6f1", "#d9bf0d")) +
+  labs(x = "Precio", y = "Area", title = "Precios de Inmuebles por superficie")
 
 # Imputación de valores a otras variables con k Nearest Neighbors (kNN) ########
 
