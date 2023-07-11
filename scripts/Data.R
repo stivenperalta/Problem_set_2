@@ -11,7 +11,7 @@ pacman::p_load(ggplot2, rio, tidyverse, skimr, caret,
        boot, readxl, knitr, kableExtra,
        glmnet, sf, tmaptools, leaflet,
        tokenizers, stopwords, SnowballC,
-       stringi, dplyr, stringr, sp) # Cargar paquetes requeridos
+       stringi, dplyr, stringr, sp, hunspell) # Cargar paquetes requeridos
 
 #Definir el directorio
 path_script<-rstudioapi::getActiveDocumentContext()$path
@@ -50,7 +50,7 @@ map<-leaflet() %>%
   addCircles(data=db,col=~pal(sample)) #pintar casas en base ala funcion pal que creamos arriba
   
 map 
-rm(map,path_folder,path_script) # Limpio objetos de poco interés en mi ambiente
+rm(path_folder,path_script,pal) # Limpio objetos de poco interés en mi ambiente
 
 # Checking existing variables ---------------------------------------------
 #GENERAL
@@ -133,55 +133,14 @@ db$description <- str_replace_all(db$description, # reemplazo las palabras numé
                                     "\\bocho\\b" = "8",
                                     "\\bnueve\\b" = "9",
                                     "\\bcero\\b" = "0"))
+#drop Stop words
 
-# Instalar y cargar el paquete 'hunspell'
-pacman::p_load(hunspell)
-
-# Crear un objeto de corrección ortográfica en español
-es_dict <- hunspell("es")
-
-# Definir una función para corregir palabras
-corregir_palabra <- function(palabra) {
-  if (!hunspell_check(es_dict, palabra)) {
-    sugerencias <- hunspell_suggest(es_dict, palabra)
-    if (length(sugerencias) > 0) {
-      return(sugerencias[1])
-    }
-  }
-  return(palabra)
+for (i in seq_along(db$description)) {
+  palabras_sin_significado <- stopwords("spanish")
+  palabras <- unlist(strsplit(db$description[[i]], "\\s+"))
+  palabras_limpias <- palabras[!(palabras %in% palabras_sin_significado)]
+  db$description[[i]] <- paste(palabras_limpias, collapse = " ")
 }
-
-# Aplicar la función corregir_palabra a cada palabra en db$tokens
-db$tokens_corregidos <- sapply(db$tokens, corregir_palabra)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 #Tokenization
 db$tokens<-tokenize_words(db$description) #esto corta todas las palabras
@@ -200,30 +159,6 @@ db$n3tokens<-tokenize_ngrams(x=db$description,
                              ngram_delim=" ", #tokens separados por espacios
                              simplify=FALSE) #se crea lista de trigrams
 
-#Stop words
-palabras1<-stopwords(language="es",source="snowball")
-palabras2<-stopwords(language="es", source="nltk")
-
-palabras<-union(palabras1,palabras2)
-palabras<-stri_trans_general(str=palabras,id="Latin-ASCII")#sacamos las tildes
-palabras
-
-for (i in seq_along(db$tokens)) { #para eliminar las palabras stopwords
-  db$tokens[[i]] <- db$tokens[[i]][!(db$tokens[[i]] %in% palabras)] #adapte el codigo para que no se eliminen las palabras repetidas
-}
-
-#sacamos 3grams que comiencen o finalicen en palabras stop
-#3gram
-db$n2tokens <- lapply(db$n2tokens, function(row) { #aplica una función a cada fila de db$n2tokens
-  row[!sapply(row, function(ngram) {
-    words <- unlist(strsplit(ngram, "\\s+")) #parte cada ngram en palabras y lo cuarda en words
-    words[1] %in% palabras || words[length(words)] %in% palabras #chequea si la primera o ultima palabra en words 
-                                                                #está en palabras usando %in%. Si alguna condición es verdad
-                                                                #se marca para removerla
-  })]
-})
-
-
 #Stemming
 db$raiztokens<-wordStem(db$tokens, "spanish")
 
@@ -231,7 +166,7 @@ db$raiztokens<-wordStem(db$tokens, "spanish")
 caracteristicas<-c("parqueadero","chimenea","balcon",
                    "vigilancia", "gimnasio","jardin","bbq",
                    "parrilla","estudio","ascensor")
-ncaracteristicas<-c("casa multifamiliar","cuarto de servicio", "zona de servicio","conjunto cerrado")
+ncaracteristicas<-c("casa multifamiliar","cuarto servicio", "zona servicio","conjunto cerrado")
 
 
 # Iterating through the list and create dummy variables
@@ -250,7 +185,7 @@ for (i in seq_along(db$tokens)) {
   }
 }
 
-#tokens de 3 palabra
+#tokens de 3 palabras
 for (i in seq_along(db$n2tokens)) {
   for (j in seq_along(db$n2tokens[[i]])) {
     for (k in seq_along(ncaracteristicas)) {
@@ -263,26 +198,10 @@ for (i in seq_along(db$n2tokens)) {
 }
 
 #Replacing dummy variables with 0s 
-
-db <- db %>% 
-  mutate(parqueadero = coalesce(parqueadero, 0),
-         chimenea = coalesce(chimenea, 0),
-         balcon= coalesce(balcon,0),
-         vigilancia= coalesce(vigilancia,0),
-         gimnasio= coalesce(gimnasio,0),
-         jardin=coalesce(jardin,0),
-         bbq=coalesce(bbq,0),
-         parrilla=coalesce(parrilla,0),
-         estudio=coalesce(estudio,0),
-         ascensor=coalesce(ascensor,0),
-         `casa multifamiliar`=coalesce(`casa multifamiliar`,0),
-         `cuarto de servicio`= coalesce(`cuarto de servicio`,0),
-         `zona de servicio`=coalesce(`zona de servicio`,0),
-         `conjunto cerrado`=coalesce(`conjunto cerrado`,0))
-
-for (caracteristica in caracteristicas) { #cambiandolas a numericas
-  db[[caracteristica]] <- as.numeric(db[[caracteristica]])
-}
+columnas <- names(db)[22:34]  # Selecciono variables para reemplazar NA's
+db <- db %>% # Reemplazo los valores
+  mutate(
+    across(all_of(columnas), ~ ifelse(is.na(.), 0, .)))
 
 #BUSCANDO AREAS
 db$area_texto <- sapply(db$n2tokens, function(tokens) {
@@ -295,54 +214,75 @@ db$area_texto <- sapply(db$n2tokens, function(tokens) {
   }
 })
 
-db$area_texto[is.na(db$area_texto)] <- 0 #reemplazando los NAs
-db$area_texto[sapply(db$area_texto, function(x) all(is.na(x)))] <- 0 #reemplazando los que tienen c(NA,NA...)
-
-db$area_texto <- sapply(db$area_texto, function(x) na.omit(unlist(x))) #sacamos de los elementos que tienen NAs y números, solo en numero
-db$area_texto <- sapply(db$area_texto, function(x) max(x, na.rm = TRUE)) #sacamos de los elementos que tienen varios números, el número más alto
+db$area_texto <- sapply(db$area_texto, function(x) max(x, na.rm = TRUE, 0)) #reemplazo NA's por ceros y dejo el valor más alto
 
 #juntando informacion de areas
 db$area <- pmax(db$surface_total, db$surface_covered, na.rm = TRUE) #primero ponemos el area mas grande entre surface_total y surface_covered
 db$area <- coalesce(db$area, db$area_texto) #reemplazamos la variable area con el valor sacado de la descripción en caso area sea NA
 
-sum(db$area==0) #cuantos aún tienen missing
+# Evaluación de Outlier #######################################################
+# Evalúo outliers de las variables continuas
+var_outliers <- db[, c("price", "rooms", "bedrooms", "bathrooms", "area")]
 
-#Revisando progreso
-arreglar <- db[db$area == 0, ] #para ver una lista de lo que falta arreglar
-arreglar <- arreglar[, c("description", "n2tokens")] #dejamos solo las dos variables de interes para revisar con facilidad
+# Establecer el diseño de la ventana de gráficos
+par(mfrow = c(2, 3))  # Ajusta los valores de "filas" y "columnas" según tus necesidades
 
-#BUSCANDO BAÑOS
-db$bano_texto <- sapply(db$n2tokens, function(tokens) {
-  match <- grep("\\b(bano|banos|bao|baos)\\b", tokens, ignore.case = TRUE, value = TRUE)
-  if (length(match) > 0) {
-    numbers <- gsub("\\D+", "", match)
-    as.numeric(numbers)
-  } else {
-    NA
-  }
-})
+# Evalúo outliers de mis variables continuas con boxplot
+for (variable in colnames(var_outliers)) {
+  boxplot(var_outliers[[variable]], main = variable)
+}
 
-db$bano_texto[is.na(db$bano_texto)] <- 0 #reemplazando los NAs
-db$bano_texto[sapply(db$bano_texto, function(x) all(is.na(x)))] <- 0 #reemplazando los que tienen c(NA,NA...)
+# Evalúo valores estadísticamente atípicos mediante prueba de significancia outlierTest
+for (variable in colnames(var_outliers)) {
+  formula <- paste(variable, "~ 1")
+  lm_outliers <- lm(formula, data = var_outliers, na.action = na.omit)
+  outlier_test <- outlierTest(lm_outliers)
+  cat("Variable:", variable, "\n")
+  summary(lm_outliers)
+  print(outlier_test)
+  cat("\n")
+}
 
-db$bano_texto <- sapply(db$bano_texto, function(x) na.omit(unlist(x))) #sacamos de los elementos que tienen NAs y números, solo en numero
-db$bano_texto <- sapply(db$bano_texto, function(x) max(x, na.rm = TRUE)) #sacamos de los elementos que tienen varios números, el número más alto
+# analizo los outliers para evaluar la coherencia de las observaciones
+db[c(), # seleccionar aquí los valores atípicos de la variable 1 (el número de la observación)
+     c("price", "rooms", "bedrooms", "bathrooms")] # VARIABLE 1
 
-#cambiar palabras uno. dos. etc a numeros
- 
-#los que tienen 0 contaran cuantas veces se repite la palabra bano, banos, bao, baos
-counts <- sapply(db$tokens, function(tokens) {
-  sum(grepl("\\b(bano|banos|bao|baos)\\b", tokens, ignore.case = TRUE))
-})
-db$bano_texto[db$bano_texto == 0] <- counts[db$bano_texto == 0]
+# analizo los outliers para evaluar la coherencia de las observaciones
+db[c(), # seleccionar aquí los valores atípicos de la variable 2 (el número de la observación)
+   c("price", "rooms", "bedrooms", "bathrooms")] # VARIABLE 2
 
-#juntando informacion de banos
-db$banos <- coalesce(db$bathrooms, db$bano_texto) #agregamos a la variable banos el valor de bathrooms. si es NA, usamos el de bano_texto
+#... Así para todas las variables con datos atípicos
 
-sum(db$banos==0) #cuantos aún tienen missing
 
-####################################
-# TAREAS PENDIENTES ##############
-# Revisar Missing values de todas las variables e imputar valores de las variables más importantes para evalucar #
-# Evaluar outliers ############################
+# Imputación de valores a otras variables con k Nearest Neighbors (kNN) ########
 
+# Evalúo variables con missing values para imputar
+
+missing_values <- colSums(is.na(db)) #sumo los NA's para cada variable
+missing_table <- data.frame(Variable = names(missing_values), Missing_Values = missing_values) # lo reflejo en un data.frame
+missing_table
+
+# Creo método de imputación con el paquete mice para imputar las variables rooms Y bathrooms
+install.packages("mice")
+library(mice)
+
+# mice tiene varios métodos de imputación. Estos valores es recomendable ajustarlos a medida que se corren los modelos para evaluar cuál presenta la mejor imputación.
+# Este artículo siento que es de ayuda: https://www.r-bloggers.com/2015/10/imputing-missing-data-with-r-mice-package/amp/
+db_subset <- select(db, rooms, bathrooms)  # Selecciono variables para imputar
+db_subset$geometry <- NULL
+db_subset
+mice_data <- mice(db_subset, m = 5, method = "pmm", seed = 201718234) # imputo con mice.impute.2lonly.pmm: Método de imputación para datos numéricos utilizando Predictive Mean Matching (PMM) con dos etapas (dos niveles).
+#Con la opción methods(mice) pueden ver los métodos de imputación para seleccionar el más acorde
+# Algunos de los más relevantes que vi (solo reemplazan "pmm" por el que escojan en method =):
+# "cart" "lasso.logreg" "lasso.norm" "lasso.select.logreg" 
+# "lasso.select.norm" "logreg.boot" "mpmm" "polr" "polyreg"
+
+
+#Evalúo las imputaciones
+mice_data$imp # si incluyo $variable solo vería los valores para una sola variable
+
+# Unifico valores imputados con valores de mi base maestra
+db[db_subset] <- complete(mice) # Una recomendación sería imputar sobre una base de copia para que, en caso de error, no tengan que correr todo el código nuevamente
+
+glimpse(db) compruebo
+#################### FIN ######################################################
