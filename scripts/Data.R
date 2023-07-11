@@ -210,7 +210,10 @@ db$area_texto <- sapply(db$n2tokens, function(tokens) {
   area_ngram <- grep("\\b(area|metro|metros|mt|mets|cuadrado|cuadrados|m|metro|mts|mtrs|mtr)\\b", tokens, ignore.case = TRUE, value = TRUE)
   if (length(area_ngram) > 0) {
     numbers <- gsub("\\D+", "", area_ngram)
-    as.numeric(numbers)
+    numeric_values <- as.numeric(numbers)
+    numeric_values <- ifelse(db$property_type == "Apartamento", numeric_values[numeric_values >= 15 & numeric_values <= 500],
+                             ifelse(db$property_type == "Casa", numeric_values[numeric_values >= 50 & numeric_values <= 2500], NA))
+    numeric_values
   } else {
     NA
   }
@@ -279,39 +282,45 @@ for (variable in colnames(var_outliers)) {
   outlier_test <- outlierTest(lm_outliers)
   cat("Variable:", variable, "\n")
   summary(lm_outliers)
-  outliers[[variable]]<-outlier_test
   print(outlier_test)
   cat("\n")
 }
 
+
 # analizo los outliers para evaluar la coherencia de las observaciones
-revisar<-db[c(11131,258,1838,1982,2293,4055,5134,6497,10594,10801,11269,29095,15057,32625,45392, 12131, 24044,25702, 33624, 46069, 4229,29932,31053,34382,31347,39599,43940), # seleccionar aquí los valores atípicos de la variable 1 (el número de la observación)
-     c("price", "area", "bedrooms", "banos", "property_type", "sample")] # VARIABLE 1
+db[c(17479, 24177, 10974, 12357, 22451, 27063, 30986, 16068, 34895, 16436), # seleccionar aquí los valores atípicos de la variable 1 (el número de la observación)
+     c("price", "area", "bedrooms", "banos", "property_type","surface_total", "surface_covered", "sample")] # VARIABLE 1
 
 #sacamos observaciones que no tienen coherencia
-db<-db[-c(29932,31053,34382,31347,39599,43940),]
-db<-db[-c(9408, 24785,3652,36224,20976,34362,6578,21736,24624,12470),]
-db<-db[-c(42151, 18278,16838,30242,23582,26590,5687,11118,26231,22569),]
-db<-db[-c(41514, 11616, 1155,5579,25865,10425,13749),]
-db<-db[-c(26063, 22168, 15888, 47266, 23488, 4600, 11035, 12422, 22303, 26816),]
-db<-db[-c(33500, 26052, 22478, 22882, 45417, 33084, 38470, 25849, 29321,20090),]
-db<-db[-c(26549, 10964, 12352, 22436, 27025, 23701, 18870, 31351, 37325, 45400),]
+db <- db[-c(9408, 41744, 41728, 44194, 44195, 41591, 39557), ]
+db<- db[-c(38403,47866, 27721,25878,29445),]
 
 #reemplazando valores en base a texto
-db$area[2672]<-360
-db$area[10519]<-360
+db$area[8979]<-249.3
+db$area[16984]<-248.5
+db$area[28983]<-248.5
+db$area[20630]<-147
+db$area[23588]<-247.5
+db$area[26817]<-246.2
+db$area[27277]<-230
+db$area[46489]<-1607.2
+db$area[40153]<-243.1
+db$area[39557]<-271
+db$area[7420]<-271
+db$area[37852]<-238.8
+db$area[30705]<-238.2
 
-db <- subset(db, db$area < 3000)
+db$area[10974]<-237.5
+db$area[12357]<237.5
+db$area[22451]<-237.5
+db$area[27063]<-237.5
+
 
 #Scatterplot de precios por area y tipo de vivienda (apartamento/casa) (para train)
 ggplot(data = subset(db, sample == "train"), aes(x = price, y = area, color = property_type)) +
   geom_point(size = 2) +
   scale_color_manual(values = c("#00b6f1", "#d9bf0d")) +
   labs(x = "Precio", y = "Area", title = "Precios de Inmuebles por superficie")
-
-subset_db <- db %>%
-  filter(area > 1000, property_type == "Apartmento") %>%
-  slice(seq_along())
 
 
 # Imputación de valores a otras variables con k Nearest Neighbors (kNN) ########
