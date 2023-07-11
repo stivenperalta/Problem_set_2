@@ -284,7 +284,6 @@ for (variable in colnames(var_outliers)) {
   cat("\n")
 }
 
-26549, 10964, 12352, 22436, 27025, 23701, 18870, 31351, 37325, 45400
 # analizo los outliers para evaluar la coherencia de las observaciones
 revisar<-db[c(11131,258,1838,1982,2293,4055,5134,6497,10594,10801,11269,29095,15057,32625,45392, 12131, 24044,25702, 33624, 46069, 4229,29932,31053,34382,31347,39599,43940), # seleccionar aquí los valores atípicos de la variable 1 (el número de la observación)
      c("price", "area", "bedrooms", "banos", "property_type", "sample")] # VARIABLE 1
@@ -302,12 +301,18 @@ db<-db[-c(26549, 10964, 12352, 22436, 27025, 23701, 18870, 31351, 37325, 45400),
 db$area[2672]<-360
 db$area[10519]<-360
 
+db <- subset(db, db$area < 3000)
 
 #Scatterplot de precios por area y tipo de vivienda (apartamento/casa) (para train)
 ggplot(data = subset(db, sample == "train"), aes(x = price, y = area, color = property_type)) +
   geom_point(size = 2) +
   scale_color_manual(values = c("#00b6f1", "#d9bf0d")) +
   labs(x = "Precio", y = "Area", title = "Precios de Inmuebles por superficie")
+
+subset_db <- db %>%
+  filter(area > 1000, property_type == "Apartmento") %>%
+  slice(seq_along())
+
 
 # Imputación de valores a otras variables con k Nearest Neighbors (kNN) ########
 
