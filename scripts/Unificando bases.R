@@ -2,7 +2,7 @@
 ################################################################################
 
 rm(list = ls()) # Limpiar Rstudio
-options(scipen = 20,  digits=3) # establezco la notacion científica y el número de decimales
+#options(scipen = 20,  digits=3) # establezco la notacion científica y el número de decimales
 
 #Definir el directorio
 path_script<-rstudioapi::getActiveDocumentContext()$path
@@ -22,7 +22,7 @@ pacman::p_load("tidyverse", #data wrangling
 ### Unifico bases con variables adicionales ##################################
 
 # Cargo las bases
-data1 <- st_read("../stores/data.geojson")
+data1 <- st_read("../stores/data2.geojson")
 data2 <-readRDS("../stores/data1.RData")
 
 # Elimino variables repetidas en ambas bases
