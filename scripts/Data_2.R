@@ -326,7 +326,7 @@ v_ref_mzn <- v_ref_mzn %>%
 
 
 #estratos
-estratos <- st_read("../stores/manzanaestratificacion/ManzanaEstratificacion.shp")
+estratos <- read_sf("https://datosabiertos.bogota.gov.co/dataset/55467552-0af4-4524-a390-a2956035744e/resource/29f2d770-bd5d-4450-9e95-8737167ba12f/download/manzanaestratificacion.json")
 st_crs(estratos)
 print(estratos)
 summary(estratos$ESTRATO) ##Variable de interes estratos
@@ -336,7 +336,7 @@ estratos <- estratos %>%
 ####  TURISMO ####
 
 #establecimientos gastronomia y bar
-T_EGB <- st_read("../stores/establecimientos gastronomia y bar.geojson")
+T_EGB <- read_sf("https://datosabiertos.bogota.gov.co/dataset/ea4d5bd3-ef6d-47ca-9357-4bf7075e1756/resource/b3dc815c-80ed-432c-bb23-ddbf134834ec/download/oprof.geojson")
 st_crs(T_EGB)
 print(T_EGB)
 summary(T_EGB$Division) ## Variable de interes densidad establecimientos (continua)
@@ -351,7 +351,7 @@ T_EGB <- T_EGB %>%
 
 
 #establecimientos de alojamiento turistico
-T_EAT <- st_read("../stores/establecimientos alojamiento turistico.geojson")
+T_EAT <- read_sf("https://datosabiertos.bogota.gov.co/dataset/f49c718e-d9e9-4271-8f8b-4e3a7450d357/resource/1826742f-57cc-47b4-ad7a-556daab781f6/download/eatu.geojson")
 st_crs(T_EAT)
 print(T_EAT)
 summary(T_EAT$Division) ## Variable de interes densidad establecimientos (continua)
@@ -371,7 +371,7 @@ est_turismo <- est_turismo %>%
 
 
 #zonas de interes turistico
-zonas_turisticas <- st_read("../stores/zitu.geojson")
+zonas_turisticas <- read_sf("https://datosabiertos.bogota.gov.co/dataset/0f36f844-5c2e-4e31-8486-d698a0a3f3dd/resource/8d9b4899-98cf-4d5b-bf36-c630bd959f9a/download/zitu.geojson")
 st_crs(zonas_turisticas)
 print(zonas_turisticas)
 table(zonas_turisticas$TIPOLOGÍA) #variable de interes, tipologia de la zona NA cuando no aplica
