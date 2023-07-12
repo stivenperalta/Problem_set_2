@@ -477,7 +477,7 @@ print(TM)
 
 
 #Centros comerciales
-CC <- st_read("../stores/Grandes_centros_comerciales/Grandes_centros_comerciales.shp")
+CC <- read_sf("https://datosabiertos.bogota.gov.co/dataset/ce479dd9-7d54-4400-a05d-8df538c43e29/resource/c91f8dbd-f0a4-4fe1-83be-935a2de908da/download/gran_centro_comercial.geojson")
 st_crs(CC)
 CC <- st_transform(CC, crs = 4686) #proyectar a coordenadas MAGNA-SIRGAS
 print(CC)
