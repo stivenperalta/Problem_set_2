@@ -313,7 +313,7 @@ sector_catastral <- sector_catastral %>%
 
 
 #valor de referencia comercial m2 terreno
-v_ref_mzn <- st_read("../stores/valor_ref_2023.geojson")
+v_ref_mzn<- read_sf ("https://datosabiertos.bogota.gov.co/dataset/a0ad3bf4-1e97-4cf9-b853-76558158036f/resource/a58af59e-9e8e-4e3c-a2ec-2388231edac8/download/valor_ref_2023.geojson")
 st_crs(v_ref_mzn)
 v_ref_mzn <- st_transform(v_ref_mzn, crs = 4686) #proyectar a coordenadas MAGNA-SIRGAS
 print(v_ref_mzn)
