@@ -93,10 +93,6 @@ missing_table
 # Creo método de imputación con el paquete mice para imputar las variables rooms Y bathrooms
 require(mice)
 
-#Grabamos la base
-st_write(db_new_flt, "../stores/db_ol.geojson", driver = "GeoJSON")
-saveRDS(db_new_flt, file = "../stores/db_ol.rds")
-
 db_new_flt<-st_read("../stores/db_ol.geojson")
 
 # mice tiene varios métodos de imputación. Estos valores es recomendable ajustarlos a medida que se corren los modelos para evaluar cuál presenta la mejor imputación.
@@ -117,6 +113,10 @@ glimpse(db_new_flt) #compruebo
 
 
 #grabo base final
+#Grabamos la base
+st_write(db_new_flt, "../stores/db_cln.geojson", driver = "GeoJSON")
+saveRDS(db_new_flt, file = "../stores/db_cln.rds")
+
 #################### FIN ######################################################
 
 
