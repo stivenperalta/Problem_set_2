@@ -18,16 +18,12 @@ getwd()
 
 # Importing Data ----------------------------------------------------------
 
-#train data
-db<-rbind(test,train) #juntamos ambas bases
+db_new<-st_read("../stores/db_spatial_correction.geojson")
 
-names(db) #vemos las variables disponibles
-summary(db)
 # Evaluación de Outlier #######################################################
 
-
 # Evalúo outliers de las variables continuas
-var_outliers <- db[, c("price", "bedrooms", "banos", "area")]
+var_outliers <- db_new[, c("price", "bedrooms", "banos", "area")]
 
 # Establecer el diseño de la ventana de gráficos
 par(mfrow = c(2, 2))  # Ajusta los valores de "filas" y "columnas" según tus necesidades
@@ -48,32 +44,50 @@ for (variable in colnames(var_outliers)) {
   cat("\n")
 }
 
-
 # analizo los outliers para evaluar la coherencia de las observaciones
-db[c(17479, 24177, 10974, 12357, 22451, 27063, 30986, 16068, 34895, 16436), # seleccionar aquí los valores atípicos de la variable 1 (el número de la observación)
-   c("price", "area", "bedrooms", "banos", "property_type","surface_total", "surface_covered", "sample")] # VARIABLE 1
-
-#sacamos observaciones que no tienen coherencia
-db <- db[-c(9408, 41744, 41728, 44194, 44195, 41591, 39557), ]
-db<- db[-c(38403,47866, 27721,25878,29445),]
-
-#reemplazando valores en base a texto
+db_new[c(9408, 41744, 41728, 44194, 44195, 41591, 39557), # seleccionar aquí los valores atípicos de la variable 1 (el número de la observación)
+   c("price", "area", "bedrooms", "banos", "property_type","surface_total", "surface_covered", "sample","LOCALIDAD")] # VARIABLE 1
 
 #Scatterplot de precios por area y tipo de vivienda (apartamento/casa) (para train)
-ggplot(data = subset(db, sample == "train"), aes(x = price, y = area, color = property_type)) +
+ggplot(data = subset(db_new, sample == "train"), aes(x = price, y = area, color = property_type)) +
   geom_point(size = 2) +
   scale_color_manual(values = c("#00b6f1", "#d9bf0d")) +
   labs(x = "Precio", y = "Area", title = "Precios de Inmuebles por superficie")
 
+#El problema parece estar en la variable Area (ya se revisaron el resto de variables)
+
+#AREA
+#################################
+
+# Creamos un boxplot para la variable "area" filtrado por sample=="train"
+boxplot(db_new$area[db_new$sample == "train"], main = "Boxplot de area (Train)", ylab = "Area")
+
+# Identificamos los outliers de train
+outliers <- boxplot.stats(db_new$area[db_new$sample == "train"])$out
+
+# Sacamos los outliers y lo grabamos en una nueva base
+db_new_flt <- db_new[!(db_new$area %in% outliers), ]
+
+#Revisando nueva base
+boxplot(db_new_flt$area[db_new_flt$sample == "train"], main = "Boxplot de area (Train)", ylab = "Area")
+
+#Scatterplot de precios por area y tipo de vivienda (apartamento/casa) (para train)
+ggplot(data = subset(db_new_flt, sample == "train"), aes(x = price, y = area, color = property_type)) +
+  geom_point(size = 2) +
+  scale_color_manual(values = c("#00b6f1", "#d9bf0d")) +
+  labs(x = "Precio", y = "Area", title = "Precios de Inmuebles por superficie")
+
+#################
+#### exportamos dataset filtrada ####
 
 # Imputación de valores a otras variables con k Nearest Neighbors (kNN) ########
 
 # Evalúo variables con missing values para imputar
-db$area<-ifelse(db$area==0,NA,db$area)
-db$banos<-ifelse(db$banos==0,NA,db$banos)
-db$`casa multifamiliar`<-ifelse(is.na(db$`casa multifamiliar`),0,db$`casa multifamiliar`)
+db_new_flt$area<-ifelse(db_new_flt$area==0,NA,db_new_flt$area)
+db_new_flt$banos<-ifelse(db_new_flt$banos==0,NA,db_new_flt$banos)
+db_new_flt <- db_new_flt %>% select(-casa.multifamiliar)
 
-missing_values <- colSums(is.na(db)) #sumo los NA's para cada variable
+missing_values <- colSums(is.na(db_new_flt)) #sumo los NA's para cada variable
 missing_table <- data.frame(Variable = names(missing_values), Missing_Values = missing_values) # lo reflejo en un data.frame
 missing_table
 
@@ -82,20 +96,16 @@ install.packages("mice")
 library(mice)
 
 #Grabamos la base
-saveRDS(db, file = "../stores/data1.rds")
+st_write(db_new_flt, "../stores/db_flt.geojson", driver = "GeoJSON")
+saveRDS(db_new_flt, file = "../stores/db_flt.rds")
 
-db$tokens<-NULL
-db$n2tokens<-NULL
-db$n3tokens<-NULL
-
-write.csv(db, file = "../stores/data1.csv")
 
 # mice tiene varios métodos de imputación. Estos valores es recomendable ajustarlos a medida que se corren los modelos para evaluar cuál presenta la mejor imputación.
 # Este artículo siento que es de ayuda: https://www.r-bloggers.com/2015/10/imputing-missing-data-with-r-mice-package/amp/
-db_subset <- select(db, area, banos)  # Selecciono variables para imputar
-db_subset$geometry <- NULL
-db_subset
-mice_data <- mice(db_subset, m = 5, method = "pmm", seed = 201718234) # imputo con mice.impute.2lonly.pmm: Método de imputación para datos numéricos utilizando Predictive Mean Matching (PMM) con dos etapas (dos niveles).
+db_new_subset <- select(db_new, area, banos)  # Selecciono variables para imputar
+db_new_subset$geometry <- NULL
+db_new_subset
+mice_data <- mice(db_new_subset, m = 5, method = "pmm", seed = 201718234) # imputo con mice.impute.2lonly.pmm: Método de imputación para datos numéricos utilizando Predictive Mean Matching (PMM) con dos etapas (dos niveles).
 #Con la opción methods(mice) pueden ver los métodos de imputación para seleccionar el más acorde
 # Algunos de los más relevantes que vi (solo reemplazan "pmm" por el que escojan en method =):
 # "cart" "lasso.logreg" "lasso.norm" "lasso.select.logreg" 
@@ -106,7 +116,7 @@ mice_data <- mice(db_subset, m = 5, method = "pmm", seed = 201718234) # imputo c
 mice_data$imp # si incluyo $variable solo vería los valores para una sola variable
 
 # Unifico valores imputados con valores de mi base maestra
-db[db_subset] <- complete(mice) # Una recomendación sería imputar sobre una base de copia para que, en caso de error, no tengan que correr todo el código nuevamente
+db_new_flt[db_new_subset] <- complete(mice) # Una recomendación sería imputar sobre una base de copia para que, en caso de error, no tengan que correr todo el código nuevamente
 
-glimpse(db) compruebo
+glimpse(db_new_flt) compruebo
 #################### FIN ######################################################
