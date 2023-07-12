@@ -254,14 +254,15 @@ counts <- sapply(db$tokens, function(tokens) {
 })
 db$bano_texto[db$bano_texto == 0] <- counts[db$bano_texto == 0]
 
-glimpse(db)
-
 #juntando informacion de banos
 db$banos <- coalesce(db$bathrooms, db$bano_texto) #agregamos a la variable banos el valor de bathrooms. si es NA, usamos el de bano_texto
 
 #arreglando variables
 db$property_type<-as.factor(db$property_type)
   
+#Guardamos la base
+saveRDS(db, file = "../stores/data1.rds")
+
 # Evaluación de Outlier #######################################################
 
 # Evalúo outliers de las variables continuas
@@ -339,8 +340,13 @@ install.packages("mice")
 library(mice)
 
 #Grabamos la base
+saveRDS(db, file = "../stores/data1.rds")
 
+db$tokens<-NULL
+db$n2tokens<-NULL
+db$n3tokens<-NULL
 
+write.csv(db, file = "../stores/data1.csv")
 
 # mice tiene varios métodos de imputación. Estos valores es recomendable ajustarlos a medida que se corren los modelos para evaluar cuál presenta la mejor imputación.
 # Este artículo siento que es de ayuda: https://www.r-bloggers.com/2015/10/imputing-missing-data-with-r-mice-package/amp/
