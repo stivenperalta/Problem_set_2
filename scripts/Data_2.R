@@ -448,14 +448,14 @@ crimen <- crimen %>%
 #### SERVICIOS Y ESPACIO PUBLICO ####
 
 #Colegios
-colegios <- st_read("../stores/colegios.geojson")
+colegios <- read_sf("https://datosabiertos.bogota.gov.co/dataset/d451b52f-e30c-43b3-9066-3a7816638fea/resource/4a6462ef-fa2e-4acf-96db-8521c65371e8/download/colegios_2022_09.geojson")
 st_crs(colegios)
 colegios <- st_transform(colegios, crs = 4686) #proyectar a coordenadas MAGNA-SIRGAS
 print(colegios)
 
 
 #parques
-parques <- st_read("../stores/parques/Parque.shp")
+parques <- read_sf("https://datosabiertos.bogota.gov.co/dataset/1ca41514-3671-41d6-8c3b-a970dc8c24a7/resource/16288e7f-0345-4680-84aa-40e987706ea8/download/parque.json")
 st_crs(parques)
 parques <- st_transform(parques, crs = 4686) #proyectar a coordenadas MAGNA-SIRGAS
 print(parques)
