@@ -26,7 +26,7 @@ data1 <- st_read("../stores/data2.geojson")
 data2 <-readRDS("../stores/data1.rds")
 
 # Elimino variables repetidas en ambas bases
-data1 <- select(data1, -c(2:14)) 
+data1 <- select(data1, -c(2:14))
 
 #indicamos la base como dato espacial
 data1 <- st_as_sf(data1, coords = c("lon", "lat"), crs = 4326) #crs: WGS 1984
@@ -44,4 +44,12 @@ data1 <- st_transform(data1, crs = 4686) # crs: MAGNA-SIRGAS (referencia datos B
 data2 <- st_transform(data2, crs = 4686)
 
 # Consolido las bases
+merged_data <- st_join(data1, data2, by = "property_id")
+
+merged_data <- sf::st_join(data1, data2, by = "property_id")
+merged_data <- merge(data1, data2, by = "property_id")
+
 data <- st_union(data1, data2)
+
+merged_data <- left_join(data2, data1, by = "property_id")
+
