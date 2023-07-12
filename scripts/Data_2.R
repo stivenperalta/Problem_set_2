@@ -541,8 +541,8 @@ print(db)
 
 
 #### nivel poligono (zitu)  ####
-data <- st_join(data,zonas_turisticas_buffer, join = st_within)
-print(data)
+#db <- st_join(db,zonas_turisticas_buffer, join = st_within)
+#print(db)
 
 
 #### distancia a servicios ####
