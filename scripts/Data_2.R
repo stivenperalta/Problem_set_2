@@ -259,6 +259,9 @@ db$banos <- coalesce(db$bathrooms, db$bano_texto) #agregamos a la variable banos
 
 #arreglando variables
 db$property_type<-as.factor(db$property_type)
+
+# DATOS GEOESPACIALES -----------------------------------------------------
+
   
 #Guardamos la base
 saveRDS(db, file = "../stores/data1.rds")
