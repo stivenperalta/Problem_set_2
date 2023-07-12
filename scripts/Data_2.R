@@ -527,16 +527,17 @@ nearest_i_vref <- st_nearest_feature(db, v_ref_mzn) # Obtener los índices de lo
 estratos <- st_make_valid(estratos)
 nearest_i_estratos <- st_nearest_feature(db, estratos)
 
-nearest_i_POB <- st_nearest_feature(db, POB)
+#nearest_i_POB <- st_nearest_feature(db, POB)
 
-data <- data %>%
+db <- db %>%
   mutate(COD_MZN = v_ref_mzn$COD_MZN[nearest_i_vref],
          V_REF_22 = v_ref_mzn$V_REF_22[nearest_i_vref],
-         ESTRATO = estratos$ESTRATO[nearest_i_estratos],
-         mzn_densidad = POB$mzn_densidad[nearest_i_POB],
-         mzn_n_viv = POB$mzn_n_viv[nearest_i_POB],
-         mzn_n_hab = POB$mzn_n_hab[nearest_i_POB])
-print(data)
+         ESTRATO = estratos$ESTRATO[nearest_i_estratos])
+
+#       mzn_densidad = POB$mzn_densidad[nearest_i_POB])
+#       mzn_n_viv = POB$mzn_n_viv[nearest_i_POB],
+#       mzn_n_hab = POB$mzn_n_hab[nearest_i_POB])
+print(db)
 
 
 #### nivel poligono (zitu)  ####
