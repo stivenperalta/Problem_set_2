@@ -498,12 +498,12 @@ POB <- POB %>%
 ####  UNION ESPACIAL SEGUN ESCALA DE AGREGACION  ####
 
 #### nivel localidad ####
-data <- st_join(data, localidad, join = st_within) # Realizar la unión espacial
-print(data)
+db <- st_join(db, localidad, join = st_within) # Realizar la unión espacial
+print(db)
 
 #### nivel upz ####
-data  <- st_join(data,est_turismo, join = st_within)
-print(data)
+db  <- st_join(db,est_turismo, join = st_within)
+print(db)
 
 data <- st_join(data,epe, join = st_within)
 print(data)
