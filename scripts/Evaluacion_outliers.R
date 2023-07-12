@@ -101,34 +101,23 @@ db_new_flt<-st_read("../stores/db_ol.geojson")
 
 # mice tiene varios métodos de imputación. Estos valores es recomendable ajustarlos a medida que se corren los modelos para evaluar cuál presenta la mejor imputación.
 # Este artículo siento que es de ayuda: https://www.r-bloggers.com/2015/10/imputing-missing-data-with-r-mice-package/amp/
-db_new_subset <- select(db_new_flt, area, banos)  # Selecciono variables para imputar
+db_new_subset <- select(db_new_flt, area, banos)  # Selecciono variables
 db_new_subset$geometry <- NULL
-db_new_subset
+
 mice_data <- mice(db_new_subset, m = 5, method = "pmm", seed = 201718234) # imputo con mice.impute.2lonly.pmm: Método de imputación para datos numéricos utilizando Predictive Mean Matching (PMM) con dos etapas (dos niveles).
 #Con la opción methods(mice) pueden ver los métodos de imputación para seleccionar el más acorde
 # Algunos de los más relevantes que vi (solo reemplazan "pmm" por el que escojan en method =):
 # "cart" "lasso.logreg" "lasso.norm" "lasso.select.logreg" 
 # "lasso.select.norm" "logreg.boot" "mpmm" "polr" "polyreg"
-
-
-#Evalúo las imputaciones
-mice_data$imp # si incluyo $variable solo vería los valores para una sola variable
-
-# Unifico valores imputados con valores de mi base maestra
-db_new_flt[db_new_subset] <- complete(mice) # Una recomendación sería imputar sobre una base de copia para que, en caso de error, no tengan que correr todo el código nuevamente
+imputed_data <- mice::complete(mice_data)
+db_new_flt$area <- imputed_data$area
+db_new_flt$banos <- imputed_data$banos
 
 glimpse(db_new_flt) #compruebo
+
+
+#grabo base final
 #################### FIN ######################################################
 
-db_new_subset <- select(db_new_flt, area, banos)
-db_new_subset$geometry <- NULL
-
-mice_data <- mice(db_new_subset, m = 5, method = "pmm", seed = 201718234)
-imputed_df <- data.frame(property_id = db_new_flt$property_id,
-                         area = imputed_data$area,
-                         banos = imputed_data$banos)
-db_new_flt <- merge(db_new_flt, imputed_df, by = "property_id", all.x = TRUE)
-
-glimpse(db_new_flt)
 
 
