@@ -481,7 +481,7 @@ CC <- read_sf("https://datosabiertos.bogota.gov.co/dataset/ce479dd9-7d54-4400-a0
 st_crs(CC)
 CC <- st_transform(CC, crs = 4686) #proyectar a coordenadas MAGNA-SIRGAS
 print(CC)
-
+st_write(CC, "../stores/CC.geojson")
 
 #### POBLACION ####
 
@@ -494,6 +494,7 @@ POB <- POB %>%
   rename(mzn_densidad = DENSIDAD,
          mzn_n_viv=TVIVIENDA,
          mzn_n_hab=TP27_PERSO)
+st_write(POB,"../stores/POB.geojson")
 
 ####  UNION ESPACIAL SEGUN ESCALA DE AGREGACION  ####
 
@@ -527,23 +528,31 @@ nearest_i_vref <- st_nearest_feature(db, v_ref_mzn) # Obtener los índices de lo
 estratos <- st_make_valid(estratos)
 nearest_i_estratos <- st_nearest_feature(db, estratos)
 
-#nearest_i_POB <- st_nearest_feature(db, POB)
-
 db <- db %>%
   mutate(COD_MZN = v_ref_mzn$COD_MZN[nearest_i_vref],
          V_REF_22 = v_ref_mzn$V_REF_22[nearest_i_vref],
          ESTRATO = estratos$ESTRATO[nearest_i_estratos])
 
-#       mzn_densidad = POB$mzn_densidad[nearest_i_POB])
-#       mzn_n_viv = POB$mzn_n_viv[nearest_i_POB],
-#       mzn_n_hab = POB$mzn_n_hab[nearest_i_POB])
-print(db)
+################### revision bases saj########################
+
+db <- readRDS("../stores/db_540.rds")
+names(db)
+
+#cargamos base de poblacion
+POB <- st_read("../stores/POB.geojson")
+
+nearest_i_POB <- st_nearest_feature(db, POB)
+
+db <- db %>%
+  mutate(mzn_densidad = POB$mzn_densidad[nearest_i_POB],
+         mzn_n_viv = POB$mzn_n_viv[nearest_i_POB],
+         mzn_n_hab = POB$mzn_n_hab[nearest_i_POB])
+names(db)
 
 
 #### nivel poligono (zitu)  ####
-#db <- st_join(db,zonas_turisticas_buffer, join = st_within)
-#print(db)
-
+db <- st_join(db,zonas_turisticas, join = st_within)
+names(db)
 
 #### distancia a servicios ####
 
@@ -571,14 +580,21 @@ hist(db$dist_TM)
 
 
 #Centros comerciales
-#CC <- sf::st_set_crs(CC, 4686)
-#CC <- sf::st_make_valid(CC)
 dist_CC <- st_distance(db,CC)
-data$dist_CC <- apply(dist_CC,1,min)
-print(data)
-summary(data$dist_CC)
-hist(data$dist_CC)
+db$dist_CC <- apply(dist_CC,1,min)
+print(db)
+summary(db$dist_CC)
+hist(db$dist_CC)
 
+#### relacion de datos con base data anteriormente extraida (solo para no volver a corresr codigo de distancia)####
+
+#data <- st_read("C:/Users/Acer/Documents/5.Temporal/data.geojson")
+#data <- subset(data, !duplicated(property_id))
+#data <- data %>%
+#  select(property_id, dist_TM,dist_parq,dist_col)
+#data <- st_drop_geometry(data)
+
+#db <- left_join(db, data2[, c("property_id", "dist_TM", "dist_col", "dist_parq")], by = "property_id")
 
 ##### BASE CONSOLIDADA ####
 
@@ -586,11 +602,11 @@ db2 <- db %>%
   select(-tokens, -n2tokens, -n3tokens, -raiztokens)
 
 #### exportamos dataset consolidado ####
-st_write(db2, "../stores/base.geojson", driver = "GeoJSON")
-st_write(db2, "../stores/data.shp")
+st_write(db2, "../stores/db_spatial_correction.geojson", driver = "GeoJSON")
+st_write(db2, "../stores/db_spatial_correction.shp")
   
 #Guardamos la base
-saveRDS(db2, file = "../stores/base.rds")
+saveRDS(db2, file = "../stores/db_spatial_correction.rds")
 
 # Evaluación de Outlier #######################################################
 
