@@ -571,6 +571,8 @@ hist(db$dist_TM)
 
 
 #Centros comerciales
+#CC <- sf::st_set_crs(CC, 4686)
+#CC <- sf::st_make_valid(CC)
 dist_CC <- st_distance(db,CC)
 data$dist_CC <- apply(dist_CC,1,min)
 print(data)
@@ -579,24 +581,13 @@ hist(data$dist_CC)
 
 
 ##### BASE CONSOLIDADA ####
-print(data)
-names(data)
-data <- data %>%
-  select(property_id,price, sample, year, month, surface_total, surface_covered,
-         rooms, bedrooms, bathrooms, property_type, operation_type, title, description,
-         COD_LOC, COD_UPZ, COD_SEC, COD_MZN, LOCALIDAD, UPZ, BARRIO, V_REF_22,
-         ESTRATO, mzn_densidad, mzn_n_viv, mzn_n_hab, EPE, dist_parq, dist_TM,
-         dist_col, dist_CC, tipologia_ZIT, tegb, teat, i_riñas, i_narcoticos,
-         i_orden, i_maltrato, d_homicidios, d_lesiones, d_hurto_personas, 
-         d_hurto_residencias, d_hurto_comercio, d_hurto_autos, d_hurto_motos,
-         d_hurto_bici, d_hurto_cel, d_sexual, d_violencia)
+
+db2 <- db %>% 
+  select(-tokens, -n2tokens, -n3tokens, -raiztokens)
 
 #### exportamos dataset consolidado ####
-st_write(data, "../stores/data.geojson", driver = "GeoJSON")
-st_write(data, "../stores/data.shp")
-
-data <- st_read("../stores/data.geojson")
-head(data)
+st_write(db2, "../stores/data.geojson", driver = "GeoJSON")
+st_write(db2, "../stores/data.shp")
 
   
 #Guardamos la base
