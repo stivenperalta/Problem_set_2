@@ -510,8 +510,8 @@ print(db)
 
 #### nivel barrio ####
 sector_catastral = st_make_valid(sector_catastral)
-data <- st_join(data,sector_catastral, join = st_within)
-print(data)
+db <- st_join(db,sector_catastral, join = st_within)
+print(db)
 
 data <- st_join(data,crimen, join = st_within)
 print(data)
