@@ -23,7 +23,7 @@ pacman::p_load("tidyverse", #data wrangling
 
 # Cargo las bases
 data1 <- st_read("../stores/data2.geojson")
-data2 <-readRDS("../stores/data1.RData")
+data2 <-readRDS("../stores/data1.rds")
 
 # Elimino variables repetidas en ambas bases
 data1 <- select(data1, -c(2:14)) 
