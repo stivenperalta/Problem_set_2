@@ -326,6 +326,9 @@ ggplot(data = subset(db, sample == "train"), aes(x = price, y = area, color = pr
 # Imputación de valores a otras variables con k Nearest Neighbors (kNN) ########
 
 # Evalúo variables con missing values para imputar
+db$area<-ifelse(db$area==0,NA,db$area)
+db$banos<-ifelse(db$banos==0,NA,db$banos)
+db$`casa multifamiliar`<-ifelse(is.na(db$`casa multifamiliar`),0,db$`casa multifamiliar`)
 
 missing_values <- colSums(is.na(db)) #sumo los NA's para cada variable
 missing_table <- data.frame(Variable = names(missing_values), Missing_Values = missing_values) # lo reflejo en un data.frame
@@ -335,9 +338,13 @@ missing_table
 install.packages("mice")
 library(mice)
 
+#Grabamos la base
+
+
+
 # mice tiene varios métodos de imputación. Estos valores es recomendable ajustarlos a medida que se corren los modelos para evaluar cuál presenta la mejor imputación.
 # Este artículo siento que es de ayuda: https://www.r-bloggers.com/2015/10/imputing-missing-data-with-r-mice-package/amp/
-db_subset <- select(db, rooms, bathrooms)  # Selecciono variables para imputar
+db_subset <- select(db, area, banos)  # Selecciono variables para imputar
 db_subset$geometry <- NULL
 db_subset
 mice_data <- mice(db_subset, m = 5, method = "pmm", seed = 201718234) # imputo con mice.impute.2lonly.pmm: Método de imputación para datos numéricos utilizando Predictive Mean Matching (PMM) con dos etapas (dos niveles).
