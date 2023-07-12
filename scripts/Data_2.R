@@ -571,7 +571,6 @@ hist(db$dist_TM)
 
 
 #Centros comerciales
-CC <- st_make_valid(CC) #tratando de arreglar el error
 dist_CC <- st_distance(db,CC)
 data$dist_CC <- apply(dist_CC,1,min)
 print(data)
