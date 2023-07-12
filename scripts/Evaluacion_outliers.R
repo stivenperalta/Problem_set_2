@@ -91,9 +91,7 @@ missing_table <- data.frame(Variable = names(missing_values), Missing_Values = m
 missing_table
 
 # Creo método de imputación con el paquete mice para imputar las variables rooms Y bathrooms
-require(mice)
 
-db_new_flt<-st_read("../stores/db_ol.geojson")
 
 # mice tiene varios métodos de imputación. Estos valores es recomendable ajustarlos a medida que se corren los modelos para evaluar cuál presenta la mejor imputación.
 # Este artículo siento que es de ayuda: https://www.r-bloggers.com/2015/10/imputing-missing-data-with-r-mice-package/amp/
