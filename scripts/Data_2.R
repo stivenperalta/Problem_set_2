@@ -548,30 +548,31 @@ print(db)
 #### distancia a servicios ####
 
 #colegios
-dist_col <- st_distance(data, colegios)
-data$dist_col <- apply(dist_col,1,min)
-print(data)
-summary(data$dist_col)
-hist(data$dist_col)
+dist_col <- st_distance(db, colegios)
+db$dist_col <- apply(dist_col,1,min)
+print(db)
+summary(db$dist_col)
+hist(db$dist_col)
 
 #parques
 parques <- st_make_valid(parques)
-dist_parq <- st_distance(data, parques)
-data$dist_parq <- apply(dist_parq,1,min)
-print(data)
-summary(data$dist_parq)
-hist(data$dist_parq)
+dist_parq <- st_distance(db, parques)
+db$dist_parq <- apply(dist_parq,1,min)
+print(db)
+summary(db$dist_parq)
+hist(db$dist_parq)
 
 #estaciones TM
-dist_TM <- st_distance(data, TM)
-data$dist_TM <- apply(dist_TM,1,min)
-print(data)
-summary(data$dist_TM)
-hist(data$dist_TM)
+dist_TM <- st_distance(db, TM)
+db$dist_TM <- apply(dist_TM,1,min)
+print(db)
+summary(db$dist_TM)
+hist(db$dist_TM)
 
 
 #Centros comerciales
-dist_CC <- st_distance(data,CC)
+CC <- st_make_valid(CC) #tratando de arreglar el error
+dist_CC <- st_distance(db,CC)
 data$dist_CC <- apply(dist_CC,1,min)
 print(data)
 summary(data$dist_CC)
