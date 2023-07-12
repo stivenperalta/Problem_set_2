@@ -486,7 +486,7 @@ print(CC)
 #### POBLACION ####
 
 #censo DANE 2018
-POB <- st_read("../stores/CENSO_2018_BOG/CENSO_2108_BOG.shp")
+POB <- st_read("../stores/CENSO_2018_BOG/MGN_ANM_MANZANA.shp")
 st_crs(POB)
 print(POB)
 POB <- POB %>% 
