@@ -8,7 +8,7 @@ pacman::p_load(ggplot2, rio, tidyverse, skimr, caret,
                glmnet, sf, tmaptools, leaflet,
                tokenizers, stopwords, SnowballC,
                stringi, dplyr, stringr, sp, hunspell,
-               car) # Cargar paquetes requeridos
+               car,mice) # Cargar paquetes requeridos
 
 #Definir el directorio
 path_script<-rstudioapi::getActiveDocumentContext()$path
@@ -78,7 +78,6 @@ ggplot(data = subset(db_new_flt, sample == "train"), aes(x = price, y = area, co
   labs(x = "Precio", y = "Area", title = "Precios de Inmuebles por superficie")
 
 #################
-#### exportamos dataset filtrada ####
 
 # Imputación de valores a otras variables con k Nearest Neighbors (kNN) ########
 
@@ -92,17 +91,17 @@ missing_table <- data.frame(Variable = names(missing_values), Missing_Values = m
 missing_table
 
 # Creo método de imputación con el paquete mice para imputar las variables rooms Y bathrooms
-install.packages("mice")
-library(mice)
+require(mice)
 
 #Grabamos la base
-st_write(db_new_flt, "../stores/db_flt.geojson", driver = "GeoJSON")
-saveRDS(db_new_flt, file = "../stores/db_flt.rds")
+st_write(db_new_flt, "../stores/db_ol.geojson", driver = "GeoJSON")
+saveRDS(db_new_flt, file = "../stores/db_ol.rds")
 
+db_new_flt<-st_read("../stores/db_ol.geojson")
 
 # mice tiene varios métodos de imputación. Estos valores es recomendable ajustarlos a medida que se corren los modelos para evaluar cuál presenta la mejor imputación.
 # Este artículo siento que es de ayuda: https://www.r-bloggers.com/2015/10/imputing-missing-data-with-r-mice-package/amp/
-db_new_subset <- select(db_new, area, banos)  # Selecciono variables para imputar
+db_new_subset <- select(db_new_flt, area, banos)  # Selecciono variables para imputar
 db_new_subset$geometry <- NULL
 db_new_subset
 mice_data <- mice(db_new_subset, m = 5, method = "pmm", seed = 201718234) # imputo con mice.impute.2lonly.pmm: Método de imputación para datos numéricos utilizando Predictive Mean Matching (PMM) con dos etapas (dos niveles).
@@ -118,5 +117,18 @@ mice_data$imp # si incluyo $variable solo vería los valores para una sola varia
 # Unifico valores imputados con valores de mi base maestra
 db_new_flt[db_new_subset] <- complete(mice) # Una recomendación sería imputar sobre una base de copia para que, en caso de error, no tengan que correr todo el código nuevamente
 
-glimpse(db_new_flt) compruebo
+glimpse(db_new_flt) #compruebo
 #################### FIN ######################################################
+
+db_new_subset <- select(db_new_flt, area, banos)
+db_new_subset$geometry <- NULL
+
+mice_data <- mice(db_new_subset, m = 5, method = "pmm", seed = 201718234)
+imputed_df <- data.frame(property_id = db_new_flt$property_id,
+                         area = imputed_data$area,
+                         banos = imputed_data$banos)
+db_new_flt <- merge(db_new_flt, imputed_df, by = "property_id", all.x = TRUE)
+
+glimpse(db_new_flt)
+
+
