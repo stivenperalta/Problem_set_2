@@ -513,8 +513,8 @@ sector_catastral = st_make_valid(sector_catastral)
 db <- st_join(db,sector_catastral, join = st_within)
 print(db)
 
-data <- st_join(data,crimen, join = st_within)
-print(data)
+db <- st_join(db,crimen, join = st_within)
+print(db)
 data <- data %>%
   select(-COD_SEC.y,-BARRIO.y) %>%
   rename(COD_SEC = COD_SEC.x,
