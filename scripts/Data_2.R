@@ -505,8 +505,8 @@ print(db)
 db  <- st_join(db,est_turismo, join = st_within)
 print(db)
 
-data <- st_join(data,epe, join = st_within)
-print(data)
+db <- st_join(db,epe, join = st_within)
+print(db)
 
 #### nivel barrio ####
 sector_catastral = st_make_valid(sector_catastral)
