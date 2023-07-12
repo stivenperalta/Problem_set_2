@@ -515,19 +515,19 @@ print(db)
 
 db <- st_join(db,crimen, join = st_within)
 print(db)
-data <- data %>%
+db <- db %>%
   select(-COD_SEC.y,-BARRIO.y) %>%
   rename(COD_SEC = COD_SEC.x,
          BARRIO = BARRIO.x)
 
 #### nivel manzana (asignamos el valor mas cercano)  ####
 v_ref_mzn <- st_make_valid(v_ref_mzn)
-nearest_i_vref <- st_nearest_feature(data, v_ref_mzn) # Obtener los índices de los polígonos más cercanos a cada punto en "data"
+nearest_i_vref <- st_nearest_feature(db, v_ref_mzn) # Obtener los índices de los polígonos más cercanos a cada punto en "data"
 
 estratos <- st_make_valid(estratos)
-nearest_i_estratos <- st_nearest_feature(data, estratos)
+nearest_i_estratos <- st_nearest_feature(db, estratos)
 
-nearest_i_POB <- st_nearest_feature(data, POB)
+nearest_i_POB <- st_nearest_feature(db, POB)
 
 data <- data %>%
   mutate(COD_MZN = v_ref_mzn$COD_MZN[nearest_i_vref],
