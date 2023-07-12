@@ -10,3 +10,5 @@ prueba2<-readRDS("../stores/data1.rds")
 missing_ids <- db$property_id[!(db$property_id %in% data2$property_id)]
 missing_data <- db[db$property_id %in% missing_ids, ]
 print(missing_data)
+
+saveRDS(db, file = "../stores/missingdata1.rds")
