@@ -586,12 +586,11 @@ db2 <- db %>%
   select(-tokens, -n2tokens, -n3tokens, -raiztokens)
 
 #### exportamos dataset consolidado ####
-st_write(db2, "../stores/data.geojson", driver = "GeoJSON")
+st_write(db2, "../stores/base.geojson", driver = "GeoJSON")
 st_write(db2, "../stores/data.shp")
-
   
 #Guardamos la base
-saveRDS(db, file = "../stores/data1.rds")
+saveRDS(db2, file = "../stores/base.rds")
 
 # Evaluación de Outlier #######################################################
 
@@ -627,25 +626,6 @@ db <- db[-c(9408, 41744, 41728, 44194, 44195, 41591, 39557), ]
 db<- db[-c(38403,47866, 27721,25878,29445),]
 
 #reemplazando valores en base a texto
-db$area[8979]<-249.3
-db$area[16984]<-248.5
-db$area[28983]<-248.5
-db$area[20630]<-147
-db$area[23588]<-247.5
-db$area[26817]<-246.2
-db$area[27277]<-230
-db$area[46489]<-1607.2
-db$area[40153]<-243.1
-db$area[39557]<-271
-db$area[7420]<-271
-db$area[37852]<-238.8
-db$area[30705]<-238.2
-
-db$area[10974]<-237.5
-db$area[12357]<237.5
-db$area[22451]<-237.5
-db$area[27063]<-237.5
-
 
 #Scatterplot de precios por area y tipo de vivienda (apartamento/casa) (para train)
 ggplot(data = subset(db, sample == "train"), aes(x = price, y = area, color = property_type)) +
