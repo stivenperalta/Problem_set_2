@@ -66,7 +66,7 @@ boxplot(db_new$area[db_new$sample == "train"], main = "Boxplot de area (Train)",
 outliers <- boxplot.stats(db_new$area[db_new$sample == "train"])$out
 
 # Sacamos los outliers y lo grabamos en una nueva base
-db_new_flt <- db_new[!(db_new$area %in% outliers), ]
+db_new_flt <- db_new[!(db_new$area %in% outliers & db_new$sample == "train"), ]
 
 #Revisando nueva base
 boxplot(db_new_flt$area[db_new_flt$sample == "train"], main = "Boxplot de area (Train)", ylab = "Area")
