@@ -57,6 +57,10 @@ rm(path_folder,path_script,pal) # Limpio objetos de poco interés en mi ambiente
 #GENERAL
 glimpse(db)
 
+missing_values <- colSums(is.na(train)) #sumo los NA's para cada variable
+missing_table <- data.frame(Variable = names(missing_values), Missing_Values = missing_values) # lo reflejo en un data.frame
+missing_table
+
 #CITY
 table(db$city) #revisamos que no hayan errores de entrada en esta variable, todas son Bogotá D.C
 
@@ -70,8 +74,13 @@ hist(train$price,
 # Tabla de frecuencia del precio train
 frequency_table <- train$price %>%
   cut(breaks = seq(3.000e+08, 1.650e+09, by = 50000000), include.lowest = TRUE, right = FALSE) %>%
-  table()
-as.data.frame(frequency_table)
+  table() %>%
+  as.data.frame()
+
+frequency_table <- frequency_table %>%
+  mutate(Cumulative_Frequency = cumsum(Freq),
+         Cumulative_Percentage = Cumulative_Frequency / sum(Freq) * 100)
+print(frequency_table)
 
 #Scatterplot de precios por tipo de vivienda (apartamento/casa) (para train)
 ggplot(train, aes(x = surface_total, y = price, color = property_type)) +
@@ -97,16 +106,18 @@ table(train$bedrooms)
 table(train$bathrooms)
 
 #PROPERTY TYPE
-pt<-data.frame(table(train$property_type))
+pt <- table(train$property_type) %>%
+  as.data.frame() %>%
+  mutate(Percentage = round(Freq / sum(Freq) * 100))
 pie_pt <- ggplot(pt, aes(x = "", y = Freq, fill = Var1)) +
   geom_bar(stat = "identity", width = 1) +
   coord_polar("y", start = 0) +
   theme_void() +
-  scale_fill_manual(values = c("#d9bf0d", "#00b6f1")) +
-  labs(title = "Gráfico Pie de la distribución entre
-  casas y apartamentos a la venta")+
-  theme(plot.title = element_text(hjust = 0.5))
-pie_pt
+  scale_fill_manual(values = c("salmon", "#d9bf0d"), name="Propiedad") +
+  labs(title = "Tipo de Propiedades") +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  geom_text(aes(label = paste0(Percentage, "%")), position = position_stack(vjust = 0.5))
+print(pie_pt)
 
 #OPERATION TYPE
 table(train$operation_type) #todos son para la venta
@@ -171,8 +182,7 @@ caracteristicas<-c("parqueadero","chimenea","balcon",
 ncaracteristicas<-c("casa multifamiliar","cuarto servicio", "zona servicio","conjunto cerrado")
 
 
-# Iterating through the list and create dummy variables
-
+# Iteramos por la lista y creamos variables dummy
 #tokens de una palabra
 for (i in seq_along(db$tokens)) {
   for (j in seq_along(db$tokens[[i]])) {
