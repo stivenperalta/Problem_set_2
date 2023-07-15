@@ -4,13 +4,15 @@
 
 # Preparación -------------------------------------------------------------
 
-rm(list = ls())  # Limpiar Rstudio excepto la base principal
+#rm(list = ls())  # Limpiar Rstudio excepto la base principal
+rm(list = setdiff(ls(), "data"))
 
 pacman::p_load(vtable, # estadísticas descriptivas
                sf, # manejo de data espacial
                spatialsample, # validación cruzada espacial
                ggplot2,
                ggspatial, # visualización espacial,
+               ranger, # random forest
                rio, tidyverse, skimr, caret, 
                rvest, magrittr, rstudioapi, stargazer, 
                boot, readxl, knitr, kableExtra,
@@ -29,13 +31,7 @@ rm(path_folder, path_script)
 # Importing Data
 data <- st_read("../stores/db_cln.geojson")
 names(data)
-
-# Evalúo missing values #######################################################
-missing_values <- colSums(is.na(data)) #sumo los NA's para cada variable
-missing_table <- data.frame(Variable = names(missing_values), Missing_Values = missing_values) # lo reflejo en un data.frame
-missing_table
-rm(missing_table, missing_values)
-
+# Missing values
 # Imputo valores de los missing values # Mayor información revisar: https://www.r-bloggers.com/2015/10/imputing-missing-data-with-r-mice-package/amp/
 data <- data %>% # imputo con 0 estas variables dado que solo hay un missing value
   mutate(i_riñas = ifelse(is.na(i_riñas), 0, i_riñas),
@@ -56,6 +52,12 @@ data <- data %>% # imputo con 0 estas variables dado que solo hay un missing val
 #identifico missing value de la variable barrio
 subset(data, is.na(BARRIO)) # identifico la geolocalización del dato
 data$BARRIO <- ifelse(is.na(data$BARRIO),"EL CHANCO I", data$BARRIO) #asigno el nombre del barrio
+
+# Evalúo missing values ##
+missing_values <- colSums(is.na(data)) #sumo los NA's para cada variable
+missing_table <- data.frame(Variable = names(missing_values), Missing_Values = missing_values) # lo reflejo en un data.frame
+missing_table
+rm(missing_table, missing_values)
 
 ############ ESTIIMACIÓN DE MODELOS DE PREDICCIÓN ##############################
 # selecciono un primer conjunto de variables de interés (numéricas o factor)####
@@ -341,12 +343,51 @@ data1$ESTRATO <- as.factor(data1$ESTRATO)
 data1$sample <- as.factor(data1$sample)
 sumtable(data1, out = "return")
 as.data.frame(table(data1$LOCALIDAD)) # observo el total de observaciones por localidad
-aggregate(cbind(observaciones = sample) ~ sample + LOCALIDAD, data = data1, FUN = length) # evalúo el total de observaciones por localidad y sample
+aggregate(cbind(observaciones = sample) ~ LOCALIDAD + sample, data = data1, FUN = length) # evalúo el total de observaciones por localidad y sample
 
 # filtro por localidades de mayor relevancia por observaciones y cercanía
-data2 <- data1 %>%
+# primero me aseguro de que haya por lo menos una observaciones de cada localidad en train y test
+set.seed(201718234)  # Establezco una semilla para reproducibilidad
+data3 <- data.frame()  # Crear una nueva base de datos vacía para almacenar las observaciones seleccionadas
+localidades_out <- c("ENGATIVA", "PUENTE ARANDA", "SANTA FE", "SUBA")
+nueva_base <- data.frame() # creo el data frame para almacenas las observaciones
+
+for (localidad in localidades_out) {
+  observaciones_localidad <- subset(data1, LOCALIDAD == localidad)
+  
+  if (nrow(observaciones_localidad) >= 5) {
+    observaciones_seleccionadas <- observaciones_localidad[sample(nrow(observaciones_localidad), 5), ]
+    nueva_base <- rbind(nueva_base, observaciones_seleccionadas)
+  } else {
+    observaciones_seleccionadas <- observaciones_localidad
+    nueva_base <- rbind(nueva_base, observaciones_seleccionadas)
+  }
+}
+nueva_base$LOCALIDAD <- "OTROS"
+
+# Selecciono las localidades de mayor relevancia
+data4 <- data1 %>%
   filter(ifelse(sample == "train" & LOCALIDAD %in% c("BARRIOS UNIDOS", "CANDELARIA", "CHAPINERO", "USAQUEN", "TEUSAQUILLO"), TRUE, sample=="test"))
-as.data.frame(table(data2$sample)) # compruebo que no se hayan eliminado valores de test
+data4$LOCALIDAD[!data4$LOCALIDAD %in% c("BARRIOS UNIDOS", "CANDELARIA", "CHAPINERO", "USAQUEN", "TEUSAQUILLO")] <- "OTROS" #unifico el nombre de las observaciones de otras localidades con train y test
+
+as.data.frame(table(data4$sample)) # compruebo que no se hayan eliminado valores de test
+
+data5 <- rbind(data4, nueva_base) # Consolido las bases
+#Compruebo que las bases estén correctamente especificadas
+aggregate(cbind(observaciones = sample) ~ LOCALIDAD + sample, data = data5, FUN = length)
+as.data.frame(table(data5$sample))
+
+# convierto en factor variables dummie
+dummies <- data5 %>%
+  st_drop_geometry() %>% 
+  select(7:19) %>% 
+  mutate_all(as.factor)
+data6 <- data5 %>%
+  select(1:6, 20:46) 
+
+data2 <- cbind(data6, dummies) # Consolido las bases
+rm(list = setdiff(ls(), c("data", "data2"))) #limpio el ambiente
+glimpse(data2)
 
 # observo los datos visualmente
 data2 <- st_transform(data2, 4326) # determino crs 4326 colombia
@@ -362,14 +403,6 @@ set.seed(201718234)
 block_folds <- spatial_block_cv(data2, v = 5)
 autoplot(block_folds)
 
-
-#creo los folds para la validación cruzada por barrio
-location_folds <- spatial_leave_location_out_cv(
-  train,
-  group = LOCALIDAD
-)
-autoplot(location_folds) 
-
 # divido mi muestra en train y sample
 
 train_data <- data2 %>%
@@ -377,21 +410,29 @@ train_data <- data2 %>%
   na.omit() %>%
   st_drop_geometry()
 
-test_data<-data1  %>%
+test_data<-data2  %>%
   filter(sample=="test") %>% 
   st_drop_geometry()
 
 train <- train_data %>%
-  select(c(1, 4:5, 7:38)) %>%  # omito "property_id" de las predicciones
+  select(c(1, 4:5, 7:23, 26:46)) %>%  # c(1, 4:5, 7, 9, 11:13, 15:19, 21:23, 26:46) # omito "property_id" de las predicciones
   na.omit()
 
 test <- test_data %>% 
-  select(c(1, 4:5, 7:38)) # omito "property_id" de las predicciones
+  select(c(1, 4:5, 7:23, 26:46)) # omito "property_id" de las predicciones
+
+#creo los folds para la validación cruzada por localidad
+location_folds <- spatial_leave_location_out_cv(
+  train_data,
+  group = LOCALIDAD
+)
+autoplot(location_folds) 
+
 
 #Creo el folds
 folds <- list()
 length(location_folds$splits) # evalúo la extensión máxima de divisiones
-for (i in 1:5) {
+for (i in 1:6) {
   folds[[i]] <- location_folds$splits[[i]]$in_id
 }
 
@@ -399,38 +440,177 @@ for (i in 1:5) {
 fitcontrol1 <- trainControl(method = "cv",
                             index = folds)
 
+#Creo el modelo de predicción
 EN2 <- train(
   price ~ .,
   data = train,
-  method = "glmnet",
-  metric = "MAE",
+  method = "glmnet", 
   trControl = fitcontrol1,
-  tuneGrid = expand.grid(alpha = seq(0.40, 0.550, length.out =7),
-                         lambda = seq(31445000, 31447000, length.out =3)) # bestTune = alpha  0.55 lambda 31446558
+  metric = "MAE",
+  tuneGrid = expand.grid(alpha = seq(0, 0.5, length.out =7),
+                         lambda = seq(20000000, 31000000, length.out =3)) # bestTune = alpha  0.55 lambda 31446558
+  
 )
 
 EN2$bestTune # evaluar el mejor alpha y lambda
 round(EN2$results$MAE[which.min(EN2$results$lambda)],3) #Evalúo el error de predicción de ese lambda
-
 plot(EN2, xvar = "lambda") # Grafico el error MAE
 
+#predigo el resultado en mi test
 test_data$price <- predict(EN2, newdata = test_data)
 
 # exporto la predicción a mi test_data
 head(test_data %>% 
        select(property_id, price))  
 
-test2 <- test_data %>%
+test3 <- test_data %>%
   st_drop_geometry() %>% 
   select(property_id,price)
 
-test2 <- test2 %>%
+test3 <- test3 %>%
   mutate(price = round(price / 50000000) * 50000000)
 
 # exporto la predicción para cargarla en Kaggle
-write.csv(test2,"../stores/lasso1.csv",row.names=FALSE)
+write.csv(test3,"../stores/EN2.csv",row.names=FALSE)
 
-head(test2)
+head(test3)
+
+#Creo el modelo de predicción 3
+EN3 <- train(
+  price ~ .,
+  data = train,
+  method = "glmnet", 
+  trControl = fitcontrol1,
+  metric = "MAE",
+  tuneGrid = expand.grid(alpha = seq(0.1, 0.7, length.out =10),
+                         lambda = 34500000) # bestTune = alpha  0.15 lambda seq(3400000, 35000000, length.out =5)
+  
+)
+
+
+
+EN3$bestTune # evaluar el mejor alpha y lambda
+round(EN2$results$MAE[which.min(EN2$results$lambda)],3) #Evalúo el error de predicción de ese lambda
+
+plot(EN3, xvar = "lambda") # Grafico el error MAE
+
+test_data$price <- predict(EN3, newdata = test_data)
+
+# exporto la predicción a mi test_data
+head(test_data %>% 
+       select(property_id, price))  
+
+test4 <- test_data %>%
+  st_drop_geometry() %>% 
+  select(property_id,price)
+
+test4 <- test4 %>%
+  mutate(price = round(price / 50000000) * 50000000)
+
+# exporto la predicción para cargarla en Kaggle
+write.csv(test4,"../stores/EN3.csv",row.names=FALSE)
+
+head(test4)
+
+
+
+
+########### Random Forest #################################################
+#creo la grilla
+tunegrid_rf <- expand.grid(
+  min.node.size = c(100, 500, 1000), # inicial c(3000, 6000, 9000, 12000)
+  mtry = c(22, 26), #sqrt de variables #inicial c(6, 12, 18)
+  splitrule = c("variance")
+)
+
+#Creo el modelo de predicción
+modelo1rf <- train(
+  price ~ .,
+  data = train,
+  method = "ranger", 
+  trControl = fitcontrol1,
+  maximize = F,
+  metric = "MAE",
+  tuneGrid = tunegrid_rf # bestTune = alpha  0.55 lambda 31446558
+)
+
+plot(modelo1rf) # observo gráficamente los resultados
+
+
+modelo1rf$bestTune # evaluar el mejor alpha y lambda
+round(modelo1rf$results$MAE[which.min(modelo1rf$results$lambda)],3) #Evalúo el error de predicción de ese lambda
+plot(modelo1rf, xvar = "lambda") # Grafico el error MAE
+
+#predigo el resultado en mi test
+test_data$price <- predict(modelo1rf, newdata = test_data)
+
+# exporto la predicción a mi test_data
+head(test_data %>% 
+       select(property_id, price))  
+
+test3 <- test_data %>%
+  st_drop_geometry() %>% 
+  select(property_id,price)
+
+test3 <- test3 %>%
+  mutate(price = round(price / 50000000) * 50000000)
+
+# exporto la predicción para cargarla en Kaggle
+write.csv(test3,"../stores/EN2.csv",row.names=FALSE)
+
+head(test3)
+
+
+
+########### Bostosting #################################################
+#creo la grilla
+tunegrid_b <- expand.grid(
+  learn.rate = c(0.1, 0.01, 0.001),
+  ntrees = c(50, 300, 900, 5000),
+  max_depth = 20,
+  min_rows = 3000,
+  col_sample_rate = 0.2
+)
+
+#Creo el modelo de predicción
+modelo1rf <- train(
+  price ~ .,
+  data = train,
+  method = "ranger", 
+  trControl = fitcontrol1,
+  maximize = F,
+  metric = "MAE",
+  tuneGrid = tunegrid_rf # bestTune = alpha  0.55 lambda 31446558
+)
+
+plot(modelo1rf) # observo gráficamente los resultados
+
+# para graficar el arbol que sale
+pacman::p_load(rattle)
+modelo1rf$finalModel
+fancyRpartPlot(modelo1rf$finalModel)
+
+##### 
+#evaluar las predicciones en muestra (in_sample)
+in_sample <- predict(modelo, train)
+# métricas para evaluar
+MAE(y_pred = in_sample, y_true = train$price) # se evalúa en la unidad de medida de price (y) es decir, en promedio, mi modelo se desacacha en x unidades de medida
+mean(train$price) #es bueno comparar el mae en función de la media de mi variable de interés
+MAPE(y_pred = in_sample, y_true = train$price) # Hace lo mismo que mae pero en porcentaje
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -498,6 +678,36 @@ ggsurvplot(location_folds)
 
 
 
+correlaciones <- data2 %>%
+  select(c(4:5, 7:23)) %>%
+  na.omit() %>% 
+  st_drop_geometry()
+
+cornum <- cor(correlaciones)
+
+library(corrplot)
+corrplot(cor_matrix, method = "circle")
+
+
+# Verificar si "price" está presente en el conjunto de datos
+if ("price" %in% names(correlaciones)) {
+  # Filtrar solo las variables correlacionadas con "price"
+  cor_with_price <- cor(correlaciones[, "price", drop = FALSE], correlaciones)
+  
+  # Mostrar la tabla de correlaciones
+  print(as.data.frame(cor_with_price))
+} else {
+  print("La variable 'price' no está presente en el conjunto de datos 'correlaciones'.")
+}
+
+
+cor_matrix <- cor(correlaciones[, -1])  # Calcula la matriz de correlación excluyendo la variable objetivo
+
+cor_threshold <- 0.8  # Umbral de correlación para considerar como alta correlación
+
+cor_high <- findCorrelation(cor_matrix, cutoff = cor_threshold)  # Identifica las variables con alta correlación
+
+train_data_filtered <- select(correlaciones, -cor_high)
 
 
 
@@ -506,11 +716,16 @@ ggsurvplot(location_folds)
 
 
 
+# maximizar procesamiento
+pacman::p_load(parallel)
+detectCores() # detecta los cores del computador
+pacman::p_load(doParallel)
+registerDoParallel(6) # X depende del total de cores de mi computador (recomendado el # de núcleos menos 2)
+getDoParWorkers() # verifico el número de cores usados por R
 
-
-
-
-
+# maximizar procesamiento opción 2
+library(h2o)
+h2o.init(nthreads = X)
 
 
 #borrador
