@@ -4,15 +4,20 @@
 
 # Preparación -------------------------------------------------------------
 
-rm(list = setdiff(ls(), c("data", "mice_data")))  # Limpiar Rstudio excepto la base principal
+rm(list = ls())  # Limpiar Rstudio excepto la base principal
 
-pacman::p_load(ggplot2, rio, tidyverse, skimr, caret, 
+pacman::p_load(vtable, # estadísticas descriptivas
+               sf, # manejo de data espacial
+               spatialsample, # validación cruzada espacial
+               ggplot2,
+               ggspatial, # visualización espacial,
+               rio, tidyverse, skimr, caret, 
                rvest, magrittr, rstudioapi, stargazer, 
                boot, readxl, knitr, kableExtra,
                glmnet, sf, tmaptools, leaflet,
                tokenizers, stopwords, SnowballC,
                stringi, dplyr, stringr, sp, hunspell,
-               car, randomForest, rpart, mice) # Cargar paquetes requeridos
+               car, randomForest, rpart, mice, psych) # Cargar paquetes requeridos
 
 #Definir el directorio
 path_script<-rstudioapi::getActiveDocumentContext()$path
@@ -22,36 +27,39 @@ getwd()
 rm(path_folder, path_script)
 
 # Importing Data
-#data <- st_read("../stores/db_cln.geojson")
+data <- st_read("../stores/db_cln.geojson")
 names(data)
 
 # Evalúo missing values #######################################################
-missing_values <- colSums(is.na(train)) #sumo los NA's para cada variable
+missing_values <- colSums(is.na(data)) #sumo los NA's para cada variable
 missing_table <- data.frame(Variable = names(missing_values), Missing_Values = missing_values) # lo reflejo en un data.frame
 missing_table
 rm(missing_table, missing_values)
 
 # Imputo valores de los missing values # Mayor información revisar: https://www.r-bloggers.com/2015/10/imputing-missing-data-with-r-mice-package/amp/
-data_imp <- select(data, tegb, teat, EPE, BARRIO, i_riñas, i_narcoticos, i_orden,
-                i_maltrato, d_homicidios, d_lesiones, d_hurto_personas,
-                d_hurto_residencias, d_hurto_comercio, d_hurto_autos,
-                d_hurto_motos, d_hurto_bici, d_hurto_cel,d_sexual, d_violencia)  # Selecciono variables para imputar
-data_imp$geometry <- NULL
+data <- data %>% # imputo con 0 estas variables dado que solo hay un missing value
+  mutate(i_riñas = ifelse(is.na(i_riñas), 0, i_riñas),
+         i_narcoticos = ifelse(is.na(i_narcoticos), 0, i_narcoticos),
+         i_orden = ifelse(is.na(i_orden), 0, i_orden),
+         i_maltrato = ifelse(is.na(i_maltrato), 0, i_maltrato),
+         d_homicidios = ifelse(is.na(d_homicidios), 0, d_homicidios),
+         d_lesiones = ifelse(is.na(d_lesiones), 0, d_lesiones),
+         d_hurto_personas = ifelse(is.na(d_hurto_personas), 0, d_hurto_personas),
+         d_hurto_residencias = ifelse(is.na(d_hurto_residencias), 0, d_hurto_residencias),
+         d_hurto_comercio = ifelse(is.na(d_hurto_comercio), 0, d_hurto_comercio),
+         d_hurto_autos = ifelse(is.na(d_hurto_autos), 0, d_hurto_autos),
+         d_hurto_motos = ifelse(is.na(d_hurto_motos), 0, d_hurto_motos),
+         d_hurto_bici = ifelse(is.na(d_hurto_bici), 0, d_hurto_bici),
+         d_hurto_cel = ifelse(is.na(d_hurto_cel), 0, d_hurto_cel),
+         d_sexual = ifelse(is.na(d_sexual), 0, d_sexual),
+         d_violencia = ifelse(is.na(d_violencia), 0, d_violencia))
+#identifico missing value de la variable barrio
+subset(data, is.na(BARRIO)) # identifico la geolocalización del dato
+data$BARRIO <- ifelse(is.na(data$BARRIO),"EL CHANCO I", data$BARRIO) #asigno el nombre del barrio
 
-mice_data <- mice(data_imp, m = 5, method = "pmm", seed = 201718234) # imputo con mice.impute.2lonly.pmm: Método de imputación para datos numéricos utilizando Predictive Mean Matching (PMM) con dos etapas (dos niveles).
-
-# Unifico valores imputados con valores de mi base maestra
-data_imp <- mice::complete(mice_data) # Una recomendación sería imputar sobre una base de copia para que, en caso de error, no tengan que correr todo el código nuevamente
-
-vars_to_keep <- setdiff(names(data), names(data_imp))
-data_to_keep <- data[vars_to_keep]
-
-data_na <- cbind(data_to_keep, data_imp)
-names(data1)
-rm(vars_to_keep,data_imp,data_to_keep)
-
+############ ESTIIMACIÓN DE MODELOS DE PREDICCIÓN ##############################
 # selecciono un primer conjunto de variables de interés (numéricas o factor)####
-data1 <- select(data_na, c(1, 3, 5, 9, 15, 17:29, 31, 33, 46:49, 54:68))
+data1 <- select(data, c(1, 3, 9, 15:29, 31, 33, 42:63, 65:68))
 names(data1)
 
 # División de los datos en conjuntos de entrenamiento y prueba
@@ -67,13 +75,12 @@ test_data<-data1  %>%
   st_drop_geometry()
 
 train <- train_data %>% 
-  select(c(2:38)) # omito "property_id" de las predicciones
+  select(c(2:3, 5:38)) # omito "property_id" de las predicciones
 
 test <- test_data %>% 
-  select(c(2:38)) # omito "property_id" de las predicciones
+  select(c(2:3, 5:38)) # omito "property_id" de las predicciones
 
-############ ESTIIMACIÓN DE MODELOS DE PREDICCIÓN ############################
-
+# rm(list = setdiff(ls(), c("data", "fitcontrol"))
 # 1) CART's------------------
 set.seed(201718234) # creo semilla
 
@@ -114,8 +121,7 @@ head(test) # evalúo que la base esté correctamente creada
 # Exporto la predicción para cargarla en Kaggle
 write.csv(test,"../stores/tree_3.csv",row.names=FALSE)
 
-#### Ajustar #############################
-
+# cart 2 #############################
 train_data <- data1 %>% 
   filter(sample == "train") %>% 
   select(price, bedrooms, property_type, parqueadero,
@@ -137,13 +143,10 @@ tree <- train(
   trcontrol = fitcontrol,
   tuneLength = 100
 )
-
-# Paso 4: Entrenamiento del modelo
-
-# Paso 5: Evaluación del modelo
+# Predicción del precio con el modelo
 predictions <- predict(model, newdata = test_data)
 
-# Paso 6: exporto la predicción a mi test_data
+# exporto la predicción a mi test_data
 test_data$price <- predict(model, newdata = test_data)
 head(test_data %>% 
        select(property_id, price))  
@@ -152,23 +155,13 @@ test <- test_data %>%
   st_drop_geometry() %>% 
   select(property_id,price)
 
-glimpse(test)
-
-#Paso 7: exporto la predicción para cargarla en Kaggle
+#exporto la predicción para cargarla en Kaggle
 tree1<-test  %>% select(property_id,pred_tree)
 write.csv(test,"tree_1.csv",row.names=FALSE)
 getwd()
 
-
-
-
-
-
-
-
-
-
-# ridge ########################################################################
+# 2) elastic net, ridge y lasso ################################################
+# ridge #########################################################################
 y <- train_data$price # creo variable predicha
 x <- as.matrix(train)
 
@@ -209,7 +202,7 @@ ridge1_2$bestTune
 
 test_data$price <- predict(ridge1_2, newdata = test_data)
 
-# Paso 6: exporto la predicción a mi test_data
+# exporto la predicción a mi test_data
 head(test_data %>% 
        select(property_id, price))  
 
@@ -221,7 +214,7 @@ test1 <- test1 %>%
   mutate(price = round(price / 10000000) * 10000000)
 
 
-#Paso 7: exporto la predicción para cargarla en Kaggle
+#exporto la predicción para cargarla en Kaggle
 write.csv(test1,"../stores/ridge1.csv",row.names=FALSE)
 
 # lasso ########################################################################
@@ -264,10 +257,9 @@ plot(
 
 lasso1_2$bestTune
 
-
 test_data$price <- predict(lasso1_2, newdata = test_data)
 
-# Paso 6: exporto la predicción a mi test_data
+# exporto la predicción a mi test_data
 head(test_data %>% 
        select(property_id, price))  
 
@@ -278,7 +270,7 @@ test2 <- test_data %>%
 test2 <- test2 %>%
   mutate(price = round(price / 50000000) * 50000000)
 
-#Paso 7: exporto la predicción para cargarla en Kaggle
+# exporto la predicción para cargarla en Kaggle
 write.csv(test2,"../stores/lasso1.csv",row.names=FALSE)
 
 head(test2)
@@ -314,10 +306,10 @@ elastic_net$finalModel$beta
 
 # revisar lo de definición de parámetros con tuneGrid = tuneGrid
 
-# Paso 5: Evaluación del modelo
+# Evaluación del modelo
 test_data$price <- predict(elastic_net, newdata = test_data)
 
-# Paso 6: exporto la predicción a mi test_data
+# exporto la predicción a mi test_data
 head(test_data %>% 
        select(property_id, price))  
 
@@ -328,72 +320,13 @@ test <- test_data %>%
 test <- test %>%
   mutate(price = round(price / 10000000) * 10000000)
 
-head(test)  
+head(test)
 
-glimpse(test)
-
-
-
-
-#Paso 7: exporto la predicción para cargarla en Kaggle
+# exporto la predicción para cargarla en Kaggle
 write.csv(test,"../stores/elastic_net.csv",row.names=FALSE)
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-###############
-# Ajustar modelo con diferentes valores de cp y evaluar rendimiento
-cp_values <- seq(0.01, 0.5, by = 0.01)  # Valores de cp a probar
-error_cv <- numeric(length(cp_values))  # Vector para almacenar los errores de validación cruzada
-
-for (i in 1:length(cp_values)) {
-  tree <- rpart(price ~ ., data = train_data, cp = cp_values[i])
-  pruned_tree <- prune(tree, cp = cp_values[i])
-  
-  if (!is.null(pruned_tree$frame) && nrow(pruned_tree$frame) > 0) {
-    cv_error <- deviance(pruned_tree)
-    error_cv[i] <- cv_error
-  } else {
-    error_cv[i] <- NA
-  }
-}
-
-# Encontrar el valor óptimo de cp
-optimal_cp <- cp_values[which.min(error_cv)]
-cat("El valor óptimo de cp es:", optimal_cp, "\n")
-
-# Ajustar el modelo con el valor óptimo de cp
-optimal_tree <- rpart(price ~ ., data = train_data, cp = optimal_cp)
-
-# Evaluar el rendimiento del modelo en el conjunto de prueba
-predictions <- predict(optimal_tree, newdata = test_data)
-mse <- mean((test_data$price - predictions)^2)
-cat("El error cuadrático medio en el conjunto de prueba es:", mse, "\n")
-
-
-
+#Predicción de prueba con una constante ######################################
 estimacion_prueba <- test_data %>%
   st_drop_geometry() %>% 
   select(property_id)
@@ -401,55 +334,292 @@ estimacion_prueba$price <- 700000000
 head(estimacion_prueba)
 write.csv(estimacion_prueba,"../stores/prueba.csv",row.names=FALSE)
 
+##### Spatial data analysis ###################################################
+names(data)
+data1 <- select(data, c(35, 42, 1, 3, 9, 15, 17:29, 31, 33, 43:63, 65:68))
+data1$ESTRATO <- as.factor(data1$ESTRATO)
+data1$sample <- as.factor(data1$sample)
+sumtable(data1, out = "return")
+as.data.frame(table(data1$LOCALIDAD)) # observo el total de observaciones por localidad
+aggregate(cbind(observaciones = sample) ~ sample + LOCALIDAD, data = data1, FUN = length) # evalúo el total de observaciones por localidad y sample
+
+# filtro por localidades de mayor relevancia por observaciones y cercanía
+data2 <- data1 %>%
+  filter(ifelse(sample == "train" & LOCALIDAD %in% c("BARRIOS UNIDOS", "CANDELARIA", "CHAPINERO", "USAQUEN", "TEUSAQUILLO"), TRUE, sample=="test"))
+as.data.frame(table(data2$sample)) # compruebo que no se hayan eliminado valores de test
+
+# observo los datos visualmente
+data2 <- st_transform(data2, 4326) # determino crs 4326 colombia
+st_crs(data2) # verifico crs colombia
+pal <- colorFactor(palette = "Dark2", domain = data2$sample) # creo la paleta de colores para pintar por barrio
+map <- leaflet() %>% 
+  addTiles() %>% 
+  addCircleMarkers (data = data2, color = ~pal(sample))
+map # observo visualmente el mapa
+
+#creo los folds para la validación cruzada aleatoriamente
+set.seed(201718234)
+block_folds <- spatial_block_cv(data2, v = 5)
+autoplot(block_folds)
 
 
+#creo los folds para la validación cruzada por barrio
+location_folds <- spatial_leave_location_out_cv(
+  train,
+  group = LOCALIDAD
+)
+autoplot(location_folds) 
 
+# divido mi muestra en train y sample
 
-
-
-
-
-
-
-
-
-
-
-
-#################### evaluación de variables numéricas #######################
-
-
-#Submuestra de variables solo numéricas
-datanum <- data1 %>% 
-  select(c(2,4,20:40)) %>% 
+train_data <- data2 %>%
+  filter(sample == "train") %>%
+  na.omit() %>%
   st_drop_geometry()
 
-
-# Calcular la matriz de correlación
-cor_matrix <- cor(datanum, use = "complete.obs")
-
-# Extraer la columna de correlaciones con "price"
-cor_with_price <- as.data.frame(cor_matrix[,"price"])
-
-print(cor_with_price)
-
-library(psych)
-
-corPlot(datahigh, main = "Matriz de correlación")
-
-#select only high corelations
-CorHigh <- abs(cor_with_price) > 0.15
-
-CorHigh 
-
-#Submuestra de variables solo numéricas
-datahigh <- datanum %>% 
-  select(c(1:6, 8, 14,22)) %>% 
+test_data<-data1  %>%
+  filter(sample=="test") %>% 
   st_drop_geometry()
 
-# Calcular la matriz de correlación
-cor_matrix <- cor(datahigh, use = "complete.obs")
+train <- train_data %>%
+  select(c(1, 4:5, 7:38)) %>%  # omito "property_id" de las predicciones
+  na.omit()
 
-# Extraer la columna de correlaciones con "price"
-cor_with_price <- as.data.frame(cor_matrix[,"price"])
-cor_with_price
+test <- test_data %>% 
+  select(c(1, 4:5, 7:38)) # omito "property_id" de las predicciones
+
+#Creo el folds
+folds <- list()
+length(location_folds$splits) # evalúo la extensión máxima de divisiones
+for (i in 1:5) {
+  folds[[i]] <- location_folds$splits[[i]]$in_id
+}
+
+#creo CV
+fitcontrol1 <- trainControl(method = "cv",
+                            index = folds)
+
+EN2 <- train(
+  price ~ .,
+  data = train,
+  method = "glmnet",
+  metric = "MAE",
+  trControl = fitcontrol1,
+  tuneGrid = expand.grid(alpha = seq(0.40, 0.550, length.out =7),
+                         lambda = seq(31445000, 31447000, length.out =3)) # bestTune = alpha  0.55 lambda 31446558
+)
+
+EN2$bestTune # evaluar el mejor alpha y lambda
+round(EN2$results$MAE[which.min(EN2$results$lambda)],3) #Evalúo el error de predicción de ese lambda
+
+plot(EN2, xvar = "lambda") # Grafico el error MAE
+
+test_data$price <- predict(EN2, newdata = test_data)
+
+# exporto la predicción a mi test_data
+head(test_data %>% 
+       select(property_id, price))  
+
+test2 <- test_data %>%
+  st_drop_geometry() %>% 
+  select(property_id,price)
+
+test2 <- test2 %>%
+  mutate(price = round(price / 50000000) * 50000000)
+
+# exporto la predicción para cargarla en Kaggle
+write.csv(test2,"../stores/lasso1.csv",row.names=FALSE)
+
+head(test2)
+
+
+
+
+# tips de clase
+#p_load(rattle)
+#modelo$finalmodel
+#fancyRpartplot(modelo$finalmodel)
+
+pacman::p_load(ggdist)
+ggsurvplot(location_folds)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#borrador
+# Spatial data analysis ###################################################
+names(data)
+data1 <- select(data, c(35, 42, 1, 3, 9, 15, 17:29, 31, 33, 43:63, 65:68))
+data1$ESTRATO <- as.factor(data1$ESTRATO)
+data1$sample <- as.factor(data1$sample)
+sumtable(data1, out = "return")
+as.data.frame(table(data1$LOCALIDAD)) # observo el total de observaciones por localidad
+aggregate(cbind(observaciones = sample) ~ LOCALIDAD + sample, data = data1, FUN = length) # evalúo el total de observaciones por localidad y sample
+
+# filtro por localidades de mayor relevancia por observaciones y cercanía
+#data2 <- data1 %>%
+#  filter(ifelse(sample == "train" & LOCALIDAD %in% c("BARRIOS UNIDOS", "CANDELARIA", "CHAPINERO", "USAQUEN", "TEUSAQUILLO"), TRUE, sample=="test"))
+#as.data.frame(table(data2$sample)) # compruebo que no se hayan eliminado valores de test
+# NO PUEDO FILTRAR POR LOCALIDAD HASTA NO ASEGURAR QUE HAYAN 5 OBSERVACIONES EN TRAIN DE LAS LOCALIDADES QUE NO TIENEN DATOS DE TEST "ENGATIVA", "PUENTE ARANDA", "SANTA FE", "SUBA", "CANDELARIA"
+data2 <- select(data1, c(1:6, 20:36, 39:46))
+
+# observo los datos visualmente
+data2 <- st_transform(data2, 4326) # determino crs 4326 colombia
+st_crs(data2) # verifico crs colombia
+pal <- colorFactor(palette = "Dark2", domain = data2$sample) # creo la paleta de colores para pintar por barrio
+map <- leaflet() %>% 
+  addTiles() %>% 
+  addCircleMarkers (data = data2, color = ~pal(sample))
+map # observo visualmente el mapa
+
+#creo los folds para la validación cruzada aleatoriamente
+set.seed(201718234)
+block_folds <- spatial_block_cv(data2, v = 5)
+autoplot(block_folds)
+
+#creo los folds para la validación cruzada por barrio
+location_folds <- spatial_leave_location_out_cv(
+  data2,
+  group = LOCALIDAD
+)
+autoplot(location_folds) 
+
+# divido mi muestra en train y sample
+train_data <- data2 %>%
+  filter(sample == "train") %>%
+  na.omit() %>%
+  st_drop_geometry()
+
+test_data<-data2  %>%
+  filter(sample=="test") %>% 
+  st_drop_geometry()
+
+train <- train_data %>%
+  select(c(4:5, 7:21)) %>%  # omito "property_id" de las predicciones
+  na.omit()
+
+test <- test_data %>% 
+  select(c(4:5, 7:21)) # omito "property_id" de las predicciones
+
+#Creo el folds
+folds <- list()
+length(block_folds$splits) # evalúo la extensión máxima de divisiones
+for (i in 1:5) {
+  folds[[i]] <- block_folds$splits[[i]]$in_id
+}
+
+#creo CV
+fitcontrol1 <- trainControl(method = "cv",
+                            index = folds)
+
+train$LOCALIDAD <- as.factor(train$LOCALIDAD)
+EN2 <- train(
+  price ~ bedrooms+area+banos+i_maltrato+d_hurto_autos+i_riñas,
+  data = train,
+  method = "glmnet",
+  metric = "MAE",
+  trControl = fitcontrol1
+)
+
+#tuneGrid = expand.grid(alpha = seq(0.40, 0.550, length.out =5),
+#                      lambda = seq(31445000, 31447000, length.out =2)) # bestTune = alpha  0.55 lambda 31446558
+
+EN2$bestTune # evaluar el mejor alpha y lambda 
+round(EN2$results$MAE[which.min(EN2$results$lambda)],3) #Evalúo el error de predicción de ese lambda
+
+plot(EN2, xvar = "lambda") #Grafico el error MAE
+
+test_data$price <- predict(EN2, newdata = test_data)
+
+# exporto la predicción a mi test_data
+head(test_data %>% 
+       select(property_id, price))  
+
+test2 <- test_data %>%
+  st_drop_geometry() %>% 
+  select(property_id,price)
+
+test2 <- test2 %>%
+  mutate(price = round(price / 50000000) * 50000000)
+
+# exporto la predicción para cargarla en Kaggle
+write.csv(test2,"../stores/EN.csv",row.names=FALSE)
+
+head(test2)
+
+
+
+
+# tips de clase
+#p_load(rattle)
+#modelo$finalmodel
+#fancyRpartplot(modelo$finalmodel)
+
+pacman::p_load(ggdist)
+ggsurvplot(location_folds)
