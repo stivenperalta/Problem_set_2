@@ -512,6 +512,7 @@ ggsurvplot(location_folds)
 
 
 
+
 #borrador
 # Spatial data analysis ###################################################
 names(data)
