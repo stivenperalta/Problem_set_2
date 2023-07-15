@@ -41,9 +41,11 @@ db%>% tabyl(price) #simple table with n, percentage and valid percent
 db%>%tabyl(LOCALIDAD,sample) #cross-tabulation
 db%>%tabyl(LOCALIDAD,sample, property_type) #cross-tabulation
 
-db<-db %>% select (sample, price, bedrooms, property_type, parqueadero, balcon, chimenea, 
+###Diseñando tabla para exportar
+
+db<-db %>% select (sample, price, area, banos, bedrooms, property_type, parqueadero, balcon, chimenea, 
                    ascensor, bbq, gimnasio, vigilancia, 
-                   area, banos,LOCALIDAD, i_riñas, i_orden, 
+                   LOCALIDAD, i_riñas, i_orden, 
                    i_narcoticos, i_maltrato, d_hurto_personas, d_hurto_autos, d_hurto_motos,
                    d_violencia, dist_CC, dist_col) #seleccionamos variables que queremos usar para tabla descriptiva
 
@@ -62,17 +64,23 @@ db$bbq <- as.factor(db$bbq)
 db$gimnasio <- as.factor(db$gimnasio)
 db$vigilancia <- as.factor(db$vigilancia)
 
+#Aplicamos un theme para la tabla
+theme_gtsummary_journal(journal = "qjecon")
+theme_gtsummary_compact()
+
 tbl<- tbl_summary(db,
             by = sample, # sacamos valores separados para train y test
             statistic = list(all_continuous() ~ "{mean} ({sd})", # estadisticas para valores continuos
                              all_categorical() ~ "{n}/{N} ({p}%)", # estadisticas para variables categoricas
-                             all_dichotomous() ~ "categorical"),
-            digits = all_continuous() ~ 1, 
-            type = all_categorical() ~ "categorical",
+                             all_dichotomous() ~ "{p}%"),
+            digits = all_continuous() ~ 1,
+            values= NULL
             missing = "no",
             label = list(
               price ~ "Precio en millones COP",
               bedrooms ~ "Habitaciones",
+              area ~ "Área",
+              banos ~ "Baños",
               property_type ~ "Tipo de propiedad",
               parqueadero ~ "Parqueadero",
               balcon ~ "Balcon",
@@ -81,8 +89,6 @@ tbl<- tbl_summary(db,
               bbq ~ "BBQ",
               gimnasio ~ "Gimnasio",
               vigilancia ~ "Vigilancia",
-              area ~ "Área",
-              banos ~ "Baños",
               LOCALIDAD ~ "Localidad",
               i_riñas ~ "Incidentes riñas 2019-2021",
               i_orden ~ "Incidentes orden público 2019-2021",
@@ -98,6 +104,5 @@ tbl<- tbl_summary(db,
   modify_header(label ~ "**Característica**") %>%
   modify_caption("**Tabla 1. Estadísticas Descriptivas**")
 
-descriptivas <- officer::read_docx() # Create a new Word document
-descriptivas <- officer::ph_with_flextable(descriptivas, value = tbl) # Add the flextable to the document
-officer::print(descriptivas, target = "../stores/descriptivas.docx") # Save the Word document
+tbl
+
