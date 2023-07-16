@@ -275,7 +275,7 @@ max_importance_rank%>%
   View()
 
 ###
-install.packages("ggrepel") ### se recomienda correr el modelo con todas las dummies de todas las UPZ sin intercepto ###
+install.packages("ggrepel")
 model_beta  %>% 
   dplyr::filter(
     predictor %in% setdiff(complete_num_cols, "area") ### aca es que se hace el filtro de las 50 primeras###
@@ -429,6 +429,6 @@ df %>%
 ######################################################################################################################
 
 
-variable_names <- colnames(est_data)
+variable_names <- colnames(prices_data)
 print(variable_names)
 
