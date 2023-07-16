@@ -412,18 +412,18 @@ autoplot(barrio_folds) # VEO la validación cruzada por barrio
 
 train <- train_data %>%
   st_drop_geometry() %>% 
-  select(c(1, 2, 4:5, 7:23, 26:46)) %>%  # c(1, 4:5, 7, 9, 11:13, 15:19, 21:23, 26:46) # omito "property_id" de las predicciones
+  select(c(1, 4:5, 7:23, 26:46)) %>%  # c(1, 4:5, 7, 9, 11:13, 15:19, 21:23, 26:46) # omito "property_id" de las predicciones
   na.omit()
 
 test <- test_data %>%
   st_drop_geometry() %>%
-  select(c(1, 2, 4:5, 7:23, 26:46)) # omito "property_id" de las predicciones
+  select(c(1, 4:5, 7:23, 26:46)) # omito "property_id" de las predicciones
 
 #Creo el folds por vc de localidad
 foldslocalidad <- list()
 length(location_folds$splits) # evalúo la extensión máxima de divisiones
 for (i in 1:6) {
-  folds[[i]] <- location_folds$splits[[i]]$in_id
+  foldslocalidad[[i]] <- location_folds$splits[[i]]$in_id
 }
 fitcontrol_localidad <- trainControl(method = "cv",
                             index = foldslocalidad)#creo CV
@@ -432,7 +432,7 @@ fitcontrol_localidad <- trainControl(method = "cv",
 foldsbarrio <- list()
 length(barrio_folds$splits) # evalúo la extensión máxima de divisiones
 for (i in 1:176) {
-  folds[[i]] <- barrio_folds$splits[[i]]$in_id
+  foldsbarrio[[i]] <- barrio_folds$splits[[i]]$in_id
 }
 fitcontrol_barrio <- trainControl(method = "cv",
                             index = foldsbarrio)#creo CV
@@ -450,9 +450,9 @@ modelo9EN <- train(
   data = train,
   method = "glmnet", 
   trControl = fitcontrol_localidad, # cv a emplear: fitcontrol_localidad, fitcontrol_barrio
-  metric = "MAE" #,
-  #tuneGrid = expand.grid(alpha = seq(0, 0.5, length.out =7),
-   #                      lambda = seq(20000000, 31000000, length.out =3)) # bestTune = alpha  0.55 lambda 31446558
+  metric = "MAE",
+  tuneGrid = expand.grid(alpha = seq(0.2, 0.5, length.out =7),
+                         lambda = seq(28423157, 31423157, length.out =4)) # bestTune = alpha  0.55 lambda 31446558
 )
 
 round(modelo9EN$results$MAE[which.min(modelo9EN$results$lambda)],3) #Evalúo el error de predicción de ese lambda
@@ -474,9 +474,9 @@ modelo10EN <- train(
   data = train,
   method = "glmnet", 
   trControl = fitcontrol_barrio, 
-  metric = "MAE"#,
-  #tuneGrid = expand.grid(alpha = seq(0.1, 0.7, length.out =10),
-   #                      lambda = 34500000) # bestTune = alpha  0.15 lambda seq(3400000, 35000000, length.out =5)
+  metric = "MAE",
+  tuneGrid = expand.grid(alpha = seq(0.2, 0.4, length.out =7),
+                         lambda = seq(3000000, 3150000, length.out =3)) # bestTune = alpha  0.15 lambda seq(3400000, 35000000, length.out =5)
 )
 
 round(modelo10EN$results$MAE[which.min(modelo10EN$results$lambda)],3) #Evalúo el error de predicción de ese lambda
@@ -495,8 +495,8 @@ write.csv(test8,"../stores/spatial_elastic_net_barrio.csv",row.names=FALSE) # Ex
 # 5.3) Random Forest y boosting -----------------------------------------------------------
 #creo la grilla
 tunegrid_rf <- expand.grid(
-  min.node.size = c(100, 500, 1000), # inicial c(3000, 6000, 9000, 12000)
-  mtry = c(22, 26), #sqrt de variables #inicial c(6, 12, 18)
+  min.node.size = c(130, 140), # inicial c(3000, 6000, 9000, 12000)
+  mtry = c(25, 26), #sqrt de variables #inicial c(6, 12, 18)
   splitrule = c("variance")
 )
 
@@ -510,7 +510,8 @@ modelo11rf <- train(
   metric = "MAE",
   tuneGrid = tunegrid_rf # bestTune = alpha  0.55 lambda 31446558
 )
-round(modelo11rf$results$MAE[which.min(modelo11rf$results$lambda)],3) #Evalúo el error de predicción de ese lambda
+
+round(modelo11rf$results$MAE[which.min(modelo11rf$results$mtry)],3) #Evalúo el error de predicción de ese lambda
 modelo11rf$bestTune # evaluar el mejor alpha y lambda
 plot(modelo11rf, xvar = "lambda") # Grafico el error MAE
 plot(modelo1rf) # observo gráficamente los resultados
@@ -529,11 +530,9 @@ write.csv(test9,"../stores/spatial_random_forest.csv",row.names=FALSE) # Exporto
 
 #creo la grilla
 tunegrid_boosting <- expand.grid(
-  learn.rate = c(0.1, 0.01, 0.001),
-  ntrees = c(50, 300, 900, 5000),
-  max_depth = 20,
-  min_rows = 3000,
-  col_sample_rate = 0.2
+  mtry = c(23, 24, 25),
+  splitrule = c("variance", "extratrees", "hellinger"),
+  min.node.size = c(124, 128, 135)
 )
 
 modelo12boosting <- train(
@@ -546,7 +545,7 @@ modelo12boosting <- train(
   tuneGrid = tunegrid_boosting # bestTune = alpha  0.55 lambda 31446558
 )
 
-round(modelo12boosting$results$MAE[which.min(modelo12boosting$results$lambda)],3) #Evalúo el error de predicción de ese lambda
+round(modelo12boosting$results$MAE[which.min(modelo12boosting$results$MAE)],3) #Evalúo el error de predicción de ese lambda
 modelo12boosting$bestTune # evaluar el mejor alpha y lambda
 plot(modelo12boosting, xvar = "lambda") # Grafico el error MAE
 plot(modelo12boosting) # observo gráficamente los resultados
@@ -561,4 +560,92 @@ test10 <- test_data %>% #organizo el csv para poder cargarlo en kaggle
 head(test10) #evalúo que la base esté correctamente creada
 write.csv(test10,"../stores/spatial_boosting.csv",row.names=FALSE) # Exporto la predicción para cargarla en Kaggle
 
+# Evaluación y comparación de modelos -----------------------------------------
+y_hat_price_boosting <- predict(modelo12boosting, test_data) # Predicción del precio con el modelo1
+# métricas para evaluar
+MAE(y_pred = test10, y_true = train$price) # se evalúa en la unidad de medida de price (y) es decir, en promedio, mi modelo se desacacha en x unidades de medida
+mae(test10, train$price) # se evalúa en la unidad de medida de price (y) es decir, en promedio, mi modelo se desacacha en x unidades de medida
+pacman::p_load("Metrics")
+mean(train$price) #es bueno comparar el mae en función de la media de mi variable de interés
+MAPE(y_pred = y_hat_price_boosting, y_true = train$price) # Hace lo mismo que mae pero en porcentaje
+
+head(cbind(test7, test8, test9, test10))
+
 ################################ FIN ##########################################
+# Resultados de estimaciones --------------------------------------------------
+#M9
+> round(modelo9EN$results$MAE[which.min(modelo9EN$results$lambda)],3) #Evalúo el error de predicción de ese lambda
+[1] 219822596
+> modelo9EN$bestTune # evaluar el mejor alpha y lambda
+alpha   lambda
+3   0.1 31423157
+
+> round(modelo9EN$results$MAE[which.min(modelo9EN$results$lambda)],3) #Evalúo el error de predicción de ese lambda
+[1] 210847666
+> modelo9EN$bestTune # evaluar el mejor alpha y lambda
+alpha   lambda
+1   0.5 30423157
+
+round(modelo9EN$results$MAE[which.min(modelo9EN$results$lambda)],3) #Evalúo el error de predicción de ese lambda
+[1] 207172544
+> modelo9EN$bestTune # evaluar el mejor alpha y lambda
+alpha   lambda
+1   0.2 28423157
+
+#Sin incluir barrio
+> round(modelo9EN$results$MAE[which.min(modelo9EN$results$lambda)],3) #Evalúo el error de predicción de ese lambda
+[1] 205442049
+> modelo9EN$bestTune # evaluar el mejor alpha y lambda
+alpha   lambda
+1   0.2 28423157
+
+# M10
+round(modelo10EN$results$MAE[which.min(modelo10EN$results$lambda)],3) #Evalúo el error de predicción de ese lambda
+[1] 200524098
+> modelo10EN$bestTune # evaluar el mejor alpha y lambda
+alpha  lambda
+5  0.55 3142316
+
+round(modelo10EN$results$MAE[which.min(modelo10EN$results$lambda)],3) #Evalúo el error de predicción de ese lambda
+[1] 198398341
+> modelo10EN$bestTune # evaluar el mejor alpha y lambda
+alpha  lambda
+1   0.3 3100000
+
+# M11 RF
+> round(modelo11rf$results$MAE[which.min(modelo11rf$results$mtry)],3) #Evalúo el error de predicción de ese lambda
+[1] 196304294
+> modelo11rf$bestTune # evaluar el mejor alpha y lambda
+mtry splitrule min.node.size
+1   22  variance           100
+
+round(modelo11rf$results$MAE[which.min(modelo11rf$results$mtry)],3) #Evalúo el error de predicción de ese lambda
+[1] 203883800
+> modelo11rf$bestTune # evaluar el mejor alpha y lambda
+mtry splitrule min.node.size
+9   22  variance           150
+
+round(modelo11rf$results$MAE[which.min(modelo11rf$results$mtry)],3) #Evalúo el error de predicción de ese lambda
+[1] 196743034
+> modelo11rf$bestTune # evaluar el mejor alpha y lambda
+mtry splitrule min.node.size
+2   24  variance           140
+
+round(modelo11rf$results$MAE[which.min(modelo11rf$results$mtry)],3) #Evalúo el error de predicción de ese lambda
+[1] 196180645
+> modelo11rf$bestTune # evaluar el mejor alpha y lambda
+mtry splitrule min.node.size
+2   25  variance           140
+
+# M12 Boosting
+round(modelo12boosting$results$MAE[which.min(modelo12boosting$results$MAE)],3) #Evalúo el error de predicción de ese lambda
+[1] 195663965
+> modelo12boosting$bestTune # evaluar el mejor alpha y lambda
+mtry  splitrule min.node.size
+3   25 extratrees           130
+
+> round(modelo12boosting$results$MAE[which.min(modelo12boosting$results$MAE)],3) #Evalúo el error de predicción de ese lambda
+[1] 195362746
+> modelo12boosting$bestTune # evaluar el mejor alpha y lambda
+mtry  splitrule min.node.size
+24   25 extratrees           135
