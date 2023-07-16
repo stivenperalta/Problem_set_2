@@ -1,4 +1,4 @@
-#
+#### Modelo 1- Lasso- K fold=2 ###
 # 0. set-up
 ### Para saber en que directorio esta parado R### En lugar de Script Folder seria mi carpeta### ### R se para en la mismca carpeta en la que esta guardado el archivo### 
 rm(list=ls())
@@ -8,7 +8,7 @@ library(dplyr)
 library(ggplot2)
 
 ###Agregacion Nico###
-db_cln.geojson <- st_read("/Users/nicolas/Downloads/ridge_lasso_nicolas/db_cln.geojson")
+db_cln.geojson <- st_read("/Users/nicolas/Documents/Problem_set_2/scripts/db_cln.geojson")
 
 #
 # 1. load prices data
@@ -429,5 +429,6 @@ df %>%
 ######################################################################################################################
 
 
-
+variable_names <- colnames(est_data)
+print(variable_names)
 
