@@ -54,61 +54,80 @@ data1 <- data_na
 
 ###Para empezar defino set de train y test para toda la base de datos
 
-
-
-# selecciono un primer conjunto de variables de interés (numéricas o factor)####
-data1 <- select(data_na, c(1, 3, 5, 9, 15, 17:29, 31, 33, 46:49, 54:68))
-names(data1)
-
 train_data <- data1 %>%
     filter(sample == "train") %>%
-    select(c(1:4, 6:39)) %>%
+    select(c(1, 3, 11, 12, 15, 17:29, 31, 33, 35, 43, 49:50)) %>%
     na.omit() %>%
     st_drop_geometry()
 
 test_data<-data1  %>%
   filter(sample=="test") %>% 
-  select(c(1:4, 6:39)) %>%
+  select(c(1, 3, 11, 12, 15, 17:29, 31, 33, 35, 43, 49:50)) %>%
   st_drop_geometry()
 
 train <- train_data %>% 
-  select(c(2:38)) # omito "property_id" de las predicciones
+  select(-c(1)) # omito "property_id" de las predicciones
 
 test <- test_data %>% 
-  select(c(2:38)) # omito "property_id" de las predicciones
+  select(-c(1)) # omito "property_id" de las predicciones
 
 #Validamos ubicacion
 
-columnas <- colnames(train)
-for (i in seq_along(columnas)) {
-        ubicacion <- i
-       titulo <- columnas[i]
-       mensaje <- paste("Columna", ubicacion, "-", titulo)
-        print(mensaje)
-}
-
-
-
-
-
-x
+# columnas <- colnames(train)
+# for (i in seq_along(columnas)) {
+#         ubicacion <- i
+#        titulo <- columnas[i]
+#        mensaje <- paste("Columna", ubicacion, "-", titulo)
+#         print(mensaje)
+# }
 
 #####Regresiones regularizadas
 
 #1.2 Ridge
 
-# Matrix of predictores (de todo el set de datos, voy a incluirlos todos)
-y <- train_data$price # creo variable predicha
-x <- as.matrix(train_data)
+# # Matrix of predictores de predictores seleccionados
+# y <- train_data$price # creo variable predicha
+# x <- as.matrix(train_data)
+# 
+# #hacemos prediccion del modelo
+# 
+# Lasso <- glmnet(
+#   x = x,
+#   y = y,
+#   alpha = 0 #ridge
+# )
+# 
+# # observo los valores lambda evaluados por el modelo
+# plot(ridge1, xvar = "lambda", xlim = c(17.5, 26.5))
+# plot(ridge1, xvar = "dev", s = "lambda")
+#    
+# 
+# # 
+# ####Lasso
 
-#hacemos prediccion del modelo
+# Matrix of predictores de predictores seleccionados
+y <- train$price # creo variable predicha
+x <- as.matrix(train)
 
-ridge1 <- glmnet(
+lasso1 <- glmnet(
   x = x,
   y = y,
-  alpha = 0 #ridge
+  alpha = 1, #lasso
+  lambda=.03
 )
 
+###Guardo los lambdas
+lasso1$beta
 
-   
 
+
+plot(lasso1, xvar = "lambda")
+set.seed(222)
+cv_error_m2_Lass_fb <- cv.glmnet(
+  x      = x_trainb,
+  y      = y_trainb,
+  alpha  = 1,
+  nfolds = 10,
+  type.measure = "mse",
+  standardize  = TRUE
+)
