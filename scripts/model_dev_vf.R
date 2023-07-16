@@ -7,7 +7,21 @@ setwd(SCRIPT_FOLDER)
 library(dplyr)
 library(ggplot2)
 
-###Agregacion Nico###
+library (pacman)
+
+p_load("tidyverse", #data wrangling
+       "vtable", #descriptive stats package
+       "stargazer", #tidy regression results,
+       "sf", #handling spatial data
+       "spatialsample", #spatial CV
+       "leaflet", #visualizacion open street maps
+       "tmaptools", #conexion a open street maps
+       "ggplot2",  #graficar datos
+       "dplyr") # para usar rename
+
+
+### Se carga la base de datos ###
+
 db_cln.geojson <- st_read("/Users/nicolas/Documents/Problem_set_2/scripts/db_cln.geojson")
 
 #
@@ -72,7 +86,7 @@ complete_num_cols=num_cols[
 ] 
 complete_num_cols
 
-#### voy a tratar las siguientes variables y estan categoricas ####
+#### tratar las siguientes variables, categoricas, de texto####
 string_cols=data_types[
   data_types %>%
     sapply(function(d){ any(d %in% c("character")) })
@@ -90,7 +104,7 @@ zero_variance_cols=
   ]
 zero_variance_cols
 
-### asi como la varianza 0 es un problema, en las categoricas no sirve tener mucha varianza, porque por cada valor voy a obtener una observacion, y eso no me sirve####
+### asi como la varianza 0 es un problema, en las categoricas no sirve tener mucha varianza, porque por cada observacion voy a obtener un valor, y eso no me sirve####
 excess_variance_categorical_cols=
   names(prices_data%>%
           dplyr::select(string_cols))[
@@ -278,7 +292,7 @@ max_importance_rank%>%
 install.packages("ggrepel")
 model_beta  %>% 
   dplyr::filter(
-    predictor %in% setdiff(complete_num_cols, "area") ### aca es que se hace el filtro de las 50 primeras###
+    predictor %in% setdiff(combined_cols, "area_texto") ### aca es que se hace el filtro de las 50 primeras###
   ) %>%
   dplyr::arrange(lambda) %>%
   split(.$predictor) %>%
@@ -381,6 +395,17 @@ best_model_fit <- glmnet::glmnet(
   lambda = best_model$lambda
 )
 #
+
+###Obtener MAE y el RSME
+
+x = train_subsamples$estimation %>% dplyr::select(-price)%>% as.matrix()
+y = train_subsamples$estimation$price %>% as.matrix()
+
+mae <- mean(abs(y - predicted_values))
+rmse <- sqrt(mean((y - predicted_values)^2))
+
+predicted_values <- predict(best_model_fit, newx = x, s = "lambda.min")
+
 preds1=predict(best_model_fit, newx =  test_data %>% dplyr::select(-price)%>% as.matrix()) %>%
   unlist() %>%
   as.data.frame() 
@@ -388,7 +413,6 @@ names(preds)="price"
 #
 preds %>%
   View()
-
 
 
 preds1 <- preds %>%
@@ -403,32 +427,4 @@ preds1 <- preds1 %>%
 preds1 %>%
   write.csv("/Users/nicolas/Downloads/ridge_lasso_nicolas/predicted_prices_rounded_Lasso.csv", row.names = FALSE)
 
-
-
-
-
-
-
-
-#### aca hago cosas nuevas ####
-df_test <- read_csv("/Users/nicolas/Documents/test.csv")
-
-newpreds <- cbind(test_data, df_test)
-
-
-%>%
-  dplyr::select(-price) %>% ### me quedo con las varían es decir, excluyo las constantes
-  dplyr::select(-excess_variance_categorical_cols)
-
-
-df <- read_csv("/Users/nicolas/Documents/predicted_prices_Lasso_NB.csv")
-
-df %>%
-  write.csv("/Users/nicolas/Downloads/ridge_lasso_nicolas/predicted_prices_LassoG4.csv", row.names = FALSE)
-
 ######################################################################################################################
-
-
-variable_names <- colnames(prices_data)
-print(variable_names)
-
