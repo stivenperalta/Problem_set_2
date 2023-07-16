@@ -437,22 +437,16 @@ for (i in 1:176) {
 fitcontrol_barrio <- trainControl(method = "cv",
                             index = foldsbarrio)#creo CV
 
-#creo los folds para la validación cruzada aleatoriamente
-#set.seed(201718234)
-#block_folds <- spatial_block_cv(train_data, v = 10)
-#autoplot(block_folds)
-#fitcontrol_random <- trainControl(method = "cv",
- #                                 index = block_folds)#creo CV
 # 5.2) creación de modelos con spatial data analysis ---------------------------
 #Creo el modelo 9 de predicción
 modelo9EN <- train(
   price ~ .,
   data = train,
   method = "glmnet", 
-  trControl = fitcontrol_localidad, # cv a emplear: fitcontrol_localidad, fitcontrol_barrio
+  trControl = fitcontrol_barrio, # cv a emplear: fitcontrol_localidad, fitcontrol_barrio
   metric = "MAE",
-  tuneGrid = expand.grid(alpha = seq(0.2, 0.5, length.out =7),
-                         lambda = seq(28423157, 31423157, length.out =4)) # bestTune = alpha  0.55 lambda 31446558
+  tuneGrid = expand.grid(alpha = seq(0.1, 0.4, length.out =7),
+                         lambda = seq(28000000, 31000000, length.out =2)) # bestTune = alpha  0.55 lambda 31446558
 )
 
 round(modelo9EN$results$MAE[which.min(modelo9EN$results$lambda)],3) #Evalúo el error de predicción de ese lambda
@@ -530,22 +524,23 @@ write.csv(test9,"../stores/spatial_random_forest.csv",row.names=FALSE) # Exporto
 
 #creo la grilla
 tunegrid_boosting <- expand.grid(
-  mtry = c(23, 24, 25),
-  splitrule = c("variance", "extratrees", "hellinger"),
-  min.node.size = c(124, 128, 135)
+  mtry = c(25),
+  splitrule = c("extratrees"),
+  min.node.size = c(135, 136)
 )
 
-modelo12boosting <- train(
+#modelo12boosting <- train(
   price ~ .,
   data = train,
   method = "ranger", 
-  trControl = fitcontrol_localidad,
+  trControl = fitcontrol_barrio,
   maximize = F,
   metric = "MAE",
   tuneGrid = tunegrid_boosting # bestTune = alpha  0.55 lambda 31446558
 )
 
 round(modelo12boosting$results$MAE[which.min(modelo12boosting$results$MAE)],3) #Evalúo el error de predicción de ese lambda
+mean(train$price)
 modelo12boosting$bestTune # evaluar el mejor alpha y lambda
 plot(modelo12boosting, xvar = "lambda") # Grafico el error MAE
 plot(modelo12boosting) # observo gráficamente los resultados
@@ -553,23 +548,29 @@ fancyRpartPlot(modelo12boosting$finalModel) # grafico el árbol (librería rattl
 
 #predigo el resultado en mi test
 test_data$price <- predict(modelo12boosting, newdata = test_data)
-test10 <- test_data %>% #organizo el csv para poder cargarlo en kaggle
+test10_1 <- test_data %>% #organizo el csv para poder cargarlo en kaggle
   st_drop_geometry() %>% 
   select(property_id,price) %>% 
   mutate(price = round(price / 10000000) * 10000000) # redondeo valores a múltiplos de 10 millones
-head(test10) #evalúo que la base esté correctamente creada
-write.csv(test10,"../stores/spatial_boosting.csv",row.names=FALSE) # Exporto la predicción para cargarla en Kaggle
+head(test10_1) #evalúo que la base esté correctamente creada
+write.csv(test10_1,"../stores/spatial_boosting_1.csv",row.names=FALSE) # Exporto la predicción para cargarla en Kaggle
 
-# Evaluación y comparación de modelos -----------------------------------------
-y_hat_price_boosting <- predict(modelo12boosting, test_data) # Predicción del precio con el modelo1
-# métricas para evaluar
-MAE(y_pred = test10, y_true = train$price) # se evalúa en la unidad de medida de price (y) es decir, en promedio, mi modelo se desacacha en x unidades de medida
-mae(test10, train$price) # se evalúa en la unidad de medida de price (y) es decir, en promedio, mi modelo se desacacha en x unidades de medida
-pacman::p_load("Metrics")
-mean(train$price) #es bueno comparar el mae en función de la media de mi variable de interés
-MAPE(y_pred = y_hat_price_boosting, y_true = train$price) # Hace lo mismo que mae pero en porcentaje
+# modelo 13 bagging
+library(ipred)
 
-head(cbind(test7, test8, test9, test10))
+modelo_bagging <- bagging(
+  formula = price ~ .,
+  data = train,
+  nbagg = 1000,
+  trControl = tunegrid_rf,
+  coob = TRUE
+)
+
+mean(train$price)
+modelo_bagging$err # evaluar el err
+y_hat_price_bagging <- predict(modelo_bagging, test_data) # Predicción del precio con el modelo1
+require("Metrics")
+mae(y_hat_price_bagging, train$price) # se evalúa en la unidad de medida de price (y) es decir, en promedio, mi modelo se desacacha en x unidades de medida
 
 ################################ FIN ##########################################
 # Resultados de estimaciones --------------------------------------------------
@@ -591,6 +592,12 @@ round(modelo9EN$results$MAE[which.min(modelo9EN$results$lambda)],3) #Evalúo el 
 > modelo9EN$bestTune # evaluar el mejor alpha y lambda
 alpha   lambda
 1   0.2 28423157
+
+> round(modelo9EN$results$MAE[which.min(modelo9EN$results$lambda)],3) #Evalúo el error de predicción de ese lambda
+[1] 200293735
+> modelo9EN$bestTune # evaluar el mejor alpha y lambda
+alpha  lambda
+1   0.1 2.8e+07
 
 #Sin incluir barrio
 > round(modelo9EN$results$MAE[which.min(modelo9EN$results$lambda)],3) #Evalúo el error de predicción de ese lambda
