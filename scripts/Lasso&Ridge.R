@@ -71,43 +71,13 @@ train <- train_data %>%
 test <- test_data %>% 
   select(-c(1)) # omito "property_id" de las predicciones
 
-#Validamos ubicacion
-
-# columnas <- colnames(train)
-# for (i in seq_along(columnas)) {
-#         ubicacion <- i
-#        titulo <- columnas[i]
-#        mensaje <- paste("Columna", ubicacion, "-", titulo)
-#         print(mensaje)
-# }
-
-#####Regresiones regularizadas
-
-#1.2 Ridge
-
-# # Matrix of predictores de predictores seleccionados
-# y <- train_data$price # creo variable predicha
-# x <- as.matrix(train_data)
-# 
-# #hacemos prediccion del modelo
-# 
-# Lasso <- glmnet(
-#   x = x,
-#   y = y,
-#   alpha = 0 #ridge
-# )
-# 
-# # observo los valores lambda evaluados por el modelo
-# plot(ridge1, xvar = "lambda", xlim = c(17.5, 26.5))
-# plot(ridge1, xvar = "dev", s = "lambda")
-#    
-# 
-# # 
-# ####Lasso
+#####Lasso
 
 # Matrix of predictores de predictores seleccionados
 y <- train$price # creo variable predicha
-x <- as.matrix(train)
+x <- model.matrix(price ~ property_type, operation_type, estudio, parqueadero,balcon, chimenea, ascensor, bbq,
+                                gimnasio, vigilancia, jardin, parrilla, cuarto.servicio, conjunto.cerrado, 
+                                zona.servicio, area, banos, LOCALIDAD, V_REF_22, dist_CC, dist_TM,data =train)
 
 lasso1 <- glmnet(
   x = x,
@@ -116,18 +86,22 @@ lasso1 <- glmnet(
   lambda=.03
 )
 
-###Guardo los lambdas
-lasso1$beta
+###Hago la validación cruzada
 
-
-
-plot(lasso1, xvar = "lambda")
 set.seed(222)
-cv_error_m2_Lass_fb <- cv.glmnet(
-  x      = x_trainb,
-  y      = y_trainb,
+cv_errorLasso1<- cv.glmnet(
+  x      = x,
+  y      = y,
   alpha  = 1,
   nfolds = 10,
-  type.measure = "mse",
-  standardize  = TRUE
+  type.measure = "mae",
 )
+
+modeloLasso1<- glmnet(
+  x           = x,
+  y           = y,
+  alpha       = 1,
+  lambda      = cv_errorLasso1$lambda.1se,
+  standardize = TRUE
+)
+
