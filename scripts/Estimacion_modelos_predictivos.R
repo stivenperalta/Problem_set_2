@@ -15,6 +15,7 @@ pacman::p_load(vtable, # estadísticas descriptivas
                ranger, # random forest
                parallel, # conocer los cores de mi pc
                doParallel, # maximizar el procesamiento en r en función de los cores de mi pc
+               rattle, # graficar los árgoles
                rio, tidyverse, skimr, caret, 
                rvest, magrittr, rstudioapi, stargazer, 
                boot, readxl, knitr, kableExtra,
@@ -66,7 +67,8 @@ missing_table <- data.frame(Variable = names(missing_values), Missing_Values = m
 missing_table
 rm(missing_table, missing_values)
 
-# creación de modelos de predicción--------------------------------------------
+
+################## creación de modelos de predicción ##########################
 # 1) CART's -------------------------------------------------------------------
 # selecciono un primer conjunto de variables de interés (numéricas o factor)
 data1 <- select(data, c(1, 3, 9, 15:29, 31, 33, 42:63, 65:68))
@@ -314,15 +316,16 @@ test5 <- test_data %>% #organizo el csv para poder cargarlo en kaggle
 head(test5) #evalúo que la base esté correctamente creada
 write.csv(test5,"../stores/elastic_net1.csv",row.names=FALSE) # Exporto la predicción para cargarla en Kaggle
 
-#Predicción de prueba con una constante ######################################
-estimacion_prueba <- test_data %>%
+# 4) Predicción de prueba con una constante ######################################
+estimacion_prueba <- test_data %>% # modelo 8
   st_drop_geometry() %>% 
   select(property_id)
 estimacion_prueba$price <- 700000000
 head(estimacion_prueba)
 write.csv(estimacion_prueba,"../stores/prueba.csv",row.names=FALSE)
 
-##### Spatial data analysis ###################################################
+# 5) modelos predictivos con Spatial data analysis ----------------------------
+# 5.1) organización y limpieza de los datos para spatial data analysis --------
 names(data)
 data1 <- select(data, c(35, 42, 1, 3, 9, 15, 17:29, 31, 33, 43:63, 65:68))
 data1$ESTRATO <- as.factor(data1$ESTRATO)
@@ -383,125 +386,113 @@ map <- leaflet() %>%
   addTiles() %>% 
   addCircleMarkers (data = data2, color = ~pal(sample))
 map # observo visualmente el mapa
-
-#creo los folds para la validación cruzada aleatoriamente
-set.seed(201718234)
-block_folds <- spatial_block_cv(data2, v = 5)
-autoplot(block_folds)
+rm(map, pal)
 
 # divido mi muestra en train y sample
-
 train_data <- data2 %>%
   filter(sample == "train") %>%
-  na.omit() %>%
-  st_drop_geometry()
-
-test_data<-data2  %>%
-  filter(sample=="test") %>% 
-  st_drop_geometry()
-
-train <- train_data %>%
-  select(c(1, 4:5, 7:23, 26:46)) %>%  # c(1, 4:5, 7, 9, 11:13, 15:19, 21:23, 26:46) # omito "property_id" de las predicciones
   na.omit()
 
-test <- test_data %>% 
-  select(c(1, 4:5, 7:23, 26:46)) # omito "property_id" de las predicciones
+test_data<-data2  %>%
+  filter(sample=="test")
 
-#creo los folds para la validación cruzada por localidad
+#creo los folds para la validación cruzada por localidad (para crearlo, todavía no quito geometry)
 location_folds <- spatial_leave_location_out_cv(
   train_data,
   group = LOCALIDAD
 )
-autoplot(location_folds) 
+autoplot(location_folds) # VEO la validación cruzada por localidad
 
+#creo los folds para la validación cruzada por barrio (para crearlo, todavía no quito geometry)
+barrio_folds <- spatial_leave_location_out_cv(
+  train_data,
+  group = BARRIO
+)
+autoplot(barrio_folds) # VEO la validación cruzada por barrio
 
-#Creo el folds
-folds <- list()
+train <- train_data %>%
+  st_drop_geometry() %>% 
+  select(c(1, 2, 4:5, 7:23, 26:46)) %>%  # c(1, 4:5, 7, 9, 11:13, 15:19, 21:23, 26:46) # omito "property_id" de las predicciones
+  na.omit()
+
+test <- test_data %>%
+  st_drop_geometry() %>%
+  select(c(1, 2, 4:5, 7:23, 26:46)) # omito "property_id" de las predicciones
+
+#Creo el folds por vc de localidad
+foldslocalidad <- list()
 length(location_folds$splits) # evalúo la extensión máxima de divisiones
 for (i in 1:6) {
   folds[[i]] <- location_folds$splits[[i]]$in_id
 }
+fitcontrol_localidad <- trainControl(method = "cv",
+                            index = foldslocalidad)#creo CV
 
-#creo CV
-fitcontrol1 <- trainControl(method = "cv",
-                            index = folds)
+#Creo el folds por vc de barrio
+foldsbarrio <- list()
+length(barrio_folds$splits) # evalúo la extensión máxima de divisiones
+for (i in 1:176) {
+  folds[[i]] <- barrio_folds$splits[[i]]$in_id
+}
+fitcontrol_barrio <- trainControl(method = "cv",
+                            index = foldsbarrio)#creo CV
 
-#Creo el modelo de predicción
-EN2 <- train(
+#creo los folds para la validación cruzada aleatoriamente
+#set.seed(201718234)
+#block_folds <- spatial_block_cv(train_data, v = 10)
+#autoplot(block_folds)
+#fitcontrol_random <- trainControl(method = "cv",
+ #                                 index = block_folds)#creo CV
+# 5.2) creación de modelos con spatial data analysis ---------------------------
+#Creo el modelo 9 de predicción
+modelo9EN <- train(
   price ~ .,
   data = train,
   method = "glmnet", 
-  trControl = fitcontrol1,
-  metric = "MAE",
-  tuneGrid = expand.grid(alpha = seq(0, 0.5, length.out =7),
-                         lambda = seq(20000000, 31000000, length.out =3)) # bestTune = alpha  0.55 lambda 31446558
-  
+  trControl = fitcontrol_localidad, # cv a emplear: fitcontrol_localidad, fitcontrol_barrio
+  metric = "MAE" #,
+  #tuneGrid = expand.grid(alpha = seq(0, 0.5, length.out =7),
+   #                      lambda = seq(20000000, 31000000, length.out =3)) # bestTune = alpha  0.55 lambda 31446558
 )
 
-EN2$bestTune # evaluar el mejor alpha y lambda
-round(EN2$results$MAE[which.min(EN2$results$lambda)],3) #Evalúo el error de predicción de ese lambda
-plot(EN2, xvar = "lambda") # Grafico el error MAE
+round(modelo9EN$results$MAE[which.min(modelo9EN$results$lambda)],3) #Evalúo el error de predicción de ese lambda
+modelo9EN$bestTune # evaluar el mejor alpha y lambda
+plot(modelo9EN, xvar = "lambda") # Grafico el error MAE
 
 #predigo el resultado en mi test
-test_data$price <- predict(EN2, newdata = test_data)
-
-# exporto la predicción a mi test_data
-head(test_data %>% 
-       select(property_id, price))  
-
-test3 <- test_data %>%
+test_data$price <- predict(modelo9EN, newdata = test_data)
+test7 <- test_data %>% #organizo el csv para poder cargarlo en kaggle
   st_drop_geometry() %>% 
-  select(property_id,price)
+  select(property_id,price) %>% 
+  mutate(price = round(price / 10000000) * 10000000) # redondeo valores a múltiplos de 10 millones
+head(test7) #evalúo que la base esté correctamente creada
+write.csv(test7,"../stores/spatial_elastic_net_localidad.csv",row.names=FALSE) # Exporto la predicción para cargarla en Kaggle
 
-test3 <- test3 %>%
-  mutate(price = round(price / 50000000) * 50000000)
-
-# exporto la predicción para cargarla en Kaggle
-write.csv(test3,"../stores/EN2.csv",row.names=FALSE)
-
-head(test3)
-
-#Creo el modelo de predicción 3
-EN3 <- train(
+# Creo el modelo 10 de predicción
+modelo10EN <- train(
   price ~ .,
   data = train,
   method = "glmnet", 
-  trControl = fitcontrol1,
-  metric = "MAE",
-  tuneGrid = expand.grid(alpha = seq(0.1, 0.7, length.out =10),
-                         lambda = 34500000) # bestTune = alpha  0.15 lambda seq(3400000, 35000000, length.out =5)
-  
+  trControl = fitcontrol_barrio, 
+  metric = "MAE"#,
+  #tuneGrid = expand.grid(alpha = seq(0.1, 0.7, length.out =10),
+   #                      lambda = 34500000) # bestTune = alpha  0.15 lambda seq(3400000, 35000000, length.out =5)
 )
 
+round(modelo10EN$results$MAE[which.min(modelo10EN$results$lambda)],3) #Evalúo el error de predicción de ese lambda
+modelo10EN$bestTune # evaluar el mejor alpha y lambda
+plot(modelo10EN, xvar = "lambda") # Grafico el error MAE
 
-
-EN3$bestTune # evaluar el mejor alpha y lambda
-round(EN2$results$MAE[which.min(EN2$results$lambda)],3) #Evalúo el error de predicción de ese lambda
-
-plot(EN3, xvar = "lambda") # Grafico el error MAE
-
-test_data$price <- predict(EN3, newdata = test_data)
-
-# exporto la predicción a mi test_data
-head(test_data %>% 
-       select(property_id, price))  
-
-test4 <- test_data %>%
+#predigo el resultado en mi test
+test_data$price <- predict(modelo10EN, newdata = test_data)
+test8 <- test_data %>% #organizo el csv para poder cargarlo en kaggle
   st_drop_geometry() %>% 
-  select(property_id,price)
+  select(property_id,price) %>% 
+  mutate(price = round(price / 10000000) * 10000000) # redondeo valores a múltiplos de 10 millones
+head(test8) #evalúo que la base esté correctamente creada
+write.csv(test8,"../stores/spatial_elastic_net_barrio.csv",row.names=FALSE) # Exporto la predicción para cargarla en Kaggle
 
-test4 <- test4 %>%
-  mutate(price = round(price / 50000000) * 50000000)
-
-# exporto la predicción para cargarla en Kaggle
-write.csv(test4,"../stores/EN3.csv",row.names=FALSE)
-
-head(test4)
-
-
-
-
-########### Random Forest #################################################
+# 5.3) Random Forest y boosting -----------------------------------------------------------
 #creo la grilla
 tunegrid_rf <- expand.grid(
   min.node.size = c(100, 500, 1000), # inicial c(3000, 6000, 9000, 12000)
@@ -509,48 +500,35 @@ tunegrid_rf <- expand.grid(
   splitrule = c("variance")
 )
 
-#Creo el modelo de predicción
-modelo1rf <- train(
+# Creo el modelo 11 de predicciónCreo con random forest
+modelo11rf <- train(
   price ~ .,
   data = train,
   method = "ranger", 
-  trControl = fitcontrol1,
+  trControl = fitcontrol_localidad,
   maximize = F,
   metric = "MAE",
   tuneGrid = tunegrid_rf # bestTune = alpha  0.55 lambda 31446558
 )
-
+round(modelo11rf$results$MAE[which.min(modelo11rf$results$lambda)],3) #Evalúo el error de predicción de ese lambda
+modelo11rf$bestTune # evaluar el mejor alpha y lambda
+plot(modelo11rf, xvar = "lambda") # Grafico el error MAE
 plot(modelo1rf) # observo gráficamente los resultados
-
-
-modelo1rf$bestTune # evaluar el mejor alpha y lambda
-round(modelo1rf$results$MAE[which.min(modelo1rf$results$lambda)],3) #Evalúo el error de predicción de ese lambda
-plot(modelo1rf, xvar = "lambda") # Grafico el error MAE
+fancyRpartPlot(modelo11rf$finalModel) # grafico el árbol (librería rattle)
 
 #predigo el resultado en mi test
-test_data$price <- predict(modelo1rf, newdata = test_data)
-
-# exporto la predicción a mi test_data
-head(test_data %>% 
-       select(property_id, price))  
-
-test3 <- test_data %>%
+test_data$price <- predict(modelo11rf, newdata = test_data)
+test9 <- test_data %>% #organizo el csv para poder cargarlo en kaggle
   st_drop_geometry() %>% 
-  select(property_id,price)
+  select(property_id,price) %>% 
+  mutate(price = round(price / 10000000) * 10000000) # redondeo valores a múltiplos de 10 millones
+head(test9) #evalúo que la base esté correctamente creada
+write.csv(test9,"../stores/spatial_random_forest.csv",row.names=FALSE) # Exporto la predicción para cargarla en Kaggle
 
-test3 <- test3 %>%
-  mutate(price = round(price / 50000000) * 50000000)
+# Creo el modelo 12 de predicción con boosting
 
-# exporto la predicción para cargarla en Kaggle
-write.csv(test3,"../stores/EN2.csv",row.names=FALSE)
-
-head(test3)
-
-
-
-########### Bostosting #################################################
 #creo la grilla
-tunegrid_b <- expand.grid(
+tunegrid_boosting <- expand.grid(
   learn.rate = c(0.1, 0.01, 0.001),
   ntrees = c(50, 300, 900, 5000),
   max_depth = 20,
@@ -558,28 +536,29 @@ tunegrid_b <- expand.grid(
   col_sample_rate = 0.2
 )
 
-#Creo el modelo de predicción
-modelo1rf <- train(
+modelo12boosting <- train(
   price ~ .,
   data = train,
   method = "ranger", 
-  trControl = fitcontrol1,
+  trControl = fitcontrol_localidad,
   maximize = F,
   metric = "MAE",
-  tuneGrid = tunegrid_rf # bestTune = alpha  0.55 lambda 31446558
+  tuneGrid = tunegrid_boosting # bestTune = alpha  0.55 lambda 31446558
 )
 
-plot(modelo1rf) # observo gráficamente los resultados
+round(modelo12boosting$results$MAE[which.min(modelo12boosting$results$lambda)],3) #Evalúo el error de predicción de ese lambda
+modelo12boosting$bestTune # evaluar el mejor alpha y lambda
+plot(modelo12boosting, xvar = "lambda") # Grafico el error MAE
+plot(modelo12boosting) # observo gráficamente los resultados
+fancyRpartPlot(modelo12boosting$finalModel) # grafico el árbol (librería rattle)
 
-# para graficar el arbol que sale
-pacman::p_load(rattle)
-modelo1rf$finalModel
-fancyRpartPlot(modelo1rf$finalModel)
+#predigo el resultado en mi test
+test_data$price <- predict(modelo12boosting, newdata = test_data)
+test10 <- test_data %>% #organizo el csv para poder cargarlo en kaggle
+  st_drop_geometry() %>% 
+  select(property_id,price) %>% 
+  mutate(price = round(price / 10000000) * 10000000) # redondeo valores a múltiplos de 10 millones
+head(test10) #evalúo que la base esté correctamente creada
+write.csv(test10,"../stores/spatial_boosting.csv",row.names=FALSE) # Exporto la predicción para cargarla en Kaggle
 
-##### 
-#evaluar las predicciones en muestra (in_sample)
-in_sample <- predict(modelo, train)
-# métricas para evaluar
-MAE(y_pred = in_sample, y_true = train$price) # se evalúa en la unidad de medida de price (y) es decir, en promedio, mi modelo se desacacha en x unidades de medida
-mean(train$price) #es bueno comparar el mae en función de la media de mi variable de interés
-MAPE(y_pred = in_sample, y_true = train$price) # Hace lo mismo que mae pero en porcentaje
+################################ FIN ##########################################
