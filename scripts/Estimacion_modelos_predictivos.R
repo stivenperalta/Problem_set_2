@@ -495,7 +495,7 @@ write.csv(test8,"../stores/spatial_elastic_net_barrio.csv",row.names=FALSE) # Ex
 # 5.3) Random Forest y boosting -----------------------------------------------------------
 #creo la grilla
 tunegrid_rf <- expand.grid(
-  min.node.size = c(130, 140), # inicial c(3000, 6000, 9000, 12000)
+  min.node.size = seq(c(135,145,length.out=5)), # inicial c(3000, 6000, 9000, 12000)
   mtry = c(25, 26), #sqrt de variables #inicial c(6, 12, 18)
   splitrule = c("variance")
 )
@@ -525,6 +525,18 @@ test9 <- test_data %>% #organizo el csv para poder cargarlo en kaggle
   mutate(price = round(price / 10000000) * 10000000) # redondeo valores a múltiplos de 10 millones
 head(test9) #evalúo que la base esté correctamente creada
 write.csv(test9,"../stores/spatial_random_forest.csv",row.names=FALSE) # Exporto la predicción para cargarla en Kaggle
+
+# Creo el modelo 14 de predicciónCreo con random forest
+modelo14rf_barrio <- train(
+  price ~ .,
+  data = train,
+  method = "ranger", 
+  trControl = fitcontrol_barrio,
+  maximize = F,
+  metric = "MAE",
+  tuneGrid = tunegrid_rf 
+)
+
 
 # Creo el modelo 12 de predicción con boosting
 
