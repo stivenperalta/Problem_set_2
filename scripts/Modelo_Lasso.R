@@ -22,7 +22,7 @@ p_load("tidyverse", #data wrangling
 
 ### Se carga la base de datos ###
 
-db_cln.geojson <- st_read("/Users/nicolas/Documents/Problem_set_2/scripts/db_cln.geojson")
+db_cln.geojson <- st_read(".../stores/db_cln.geojson")
 
 #
 # 1. load prices data
